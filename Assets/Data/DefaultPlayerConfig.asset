@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd103871fdfe742ef9e186f7ee2a5e48, type: 3}
+  m_Name: DefaultPlayerConfig
+  m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Scriptables.PlayerConfigSO
+  BaseStats:
+    MaxHealth: 100
+    MaxStamina: 100
+    StaminaRegenRate: 30
+    StaminaRegenDelay: 0.8
+    MaxPoise: 50
+    PoiseRegenRate: 20
+    PoiseRegenDelay: 3
+    BaseDamage: 20
+    LightAttackMultiplier: 1
+    HeavyAttackMultiplier: 1.8
+    AttackSpeed: 1
+    PhysicalDefense: 0.1
+    PartialParryDamageReduction: 0.5
+    SprintStaminaCost: 15
+    DodgeStaminaCost: 20
+    LightAttackStaminaCost: 15
+    HeavyAttackStaminaCost: 30
+    ParryWindowDuration: 0.2
+    PerfectParryWindow: 0.1
+    DodgeIFrameDuration: 0.3
+    DodgeDuration: 0.6
+    StaggerRecoveryTime: 1.5
+    MoveSpeed: 5
+    SprintMultiplier: 1.6
+    RotationSpeed: 360
+    DodgeDistance: 4
+  DefaultWeapon: {fileID: 11400000, guid: 0c25c04fc8f344f678d80573ae21b540, type: 2}
+  LockOnRange: 20
+  LockOnFOV: 90
+  DodgeIFrames: 0.3
+  DodgeDuration: 0.6
+  DodgeDistance: 4
+  ParryWindow: 0.2
+  PerfectParryWindow: 0.1
+  LockOnCameraDistance: 3
+  CameraAngle: 20
+  ModelPrefab: {fileID: 0}
+  AnimatorController: {fileID: 0}
+  FootstepSounds: []
+  DodgeSound: {fileID: 0}
+  ParrySound: {fileID: 0}
+  HurtSound: {fileID: 0}
+  DeathSound: {fileID: 0}

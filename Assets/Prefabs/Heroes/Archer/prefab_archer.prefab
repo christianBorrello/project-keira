@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &5256532083244688738
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8703544979030634772, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Clothes_Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -6153458435004094520, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Eyelashes_Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: -298872764833787496, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Body_Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: 205264445719448523, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Bow_Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: character
+      objectReference: {fileID: 0}
+    - target: {fileID: 1794436471828847685, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Eyes_Mesh
+      objectReference: {fileID: 0}
+    - target: {fileID: 2644044852507878272, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2.682
+      objectReference: {fileID: 0}
+    - target: {fileID: 4298769053401268060, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.277
+      objectReference: {fileID: 0}
+    - target: {fileID: 4936884950917866777, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}
+      propertyPath: m_Name
+      value: Erika_Archer_Arrow_Mesh
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 661cf6fd3f2d94a3a93eaadb0eb40a1c, type: 3}

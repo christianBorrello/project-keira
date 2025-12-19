@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49aacd518bf1f4dc9a30097b212fa5e7, type: 3}
+  m_Name: Enemy_Basic_Data
+  m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Scriptables.EnemyDataSO
+  EnemyName: Basic Enemy
+  Description: 
+  BehaviorType: 0
+  BaseStats:
+    MaxHealth: 50
+    MaxStamina: 100
+    StaminaRegenRate: 100
+    StaminaRegenDelay: 0
+    MaxPoise: 30
+    PoiseRegenRate: 10
+    PoiseRegenDelay: 5
+    BaseDamage: 15
+    LightAttackMultiplier: 1
+    HeavyAttackMultiplier: 1.5
+    AttackSpeed: 0.8
+    PhysicalDefense: 0.05
+    PartialParryDamageReduction: 0.7
+    SprintStaminaCost: 0
+    DodgeStaminaCost: 0
+    LightAttackStaminaCost: 0
+    HeavyAttackStaminaCost: 0
+    ParryWindowDuration: 0
+    PerfectParryWindow: 0
+    DodgeIFrameDuration: 0
+    DodgeDuration: 0
+    StaggerRecoveryTime: 2
+    MoveSpeed: 3
+    SprintMultiplier: 1
+    RotationSpeed: 180
+    DodgeDistance: 0
+  DetectionRange: 25
+  AttackRange: 2
+  MaxChaseRange: 25
+  DetectionCheckInterval: 0.5
+  AttackCooldown: 2
+  CircleTime: 1.5
+  HeavyAttackChance: 0.2
+  BlockChance: 0
+  DodgeChance: 0
+  LockOnPriority: 1
+  LockOnOffset: {x: 0, y: 1.2, z: 0}
+  ModelPrefab: {fileID: 0}
+  AnimatorController: {fileID: 0}
+  HealthBarPrefab: {fileID: 0}
+  IdleSounds: []
+  AlertSound: {fileID: 0}
+  AttackSounds: []
+  HurtSounds: []
+  DeathSound: {fileID: 0}
+  CurrencyDrop: 100
+  DropTable: []

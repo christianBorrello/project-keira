@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af6b6b34e26a34d79932cd1e40d691cd, type: 3}
+  m_Name: Sword_Basic
+  m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Scriptables.WeaponDataSO
+  WeaponName: Basic Sword
+  Type: 0
+  Description: 
+  BaseDamage: 25
+  BasePoiseDamage: 20
+  LightDamageMultiplier: 1
+  HeavyDamageMultiplier: 1.8
+  LightAttackDuration: 0.5
+  HeavyAttackDuration: 1
+  StartupPercent: 0.15
+  ActivePercent: 0.3
+  MaxComboCount: 3
+  ComboWindowStart: 0.5
+  RecoveryWindowStart: 0.8
+  LightStaminaCost: 15
+  HeavyStaminaCost: 30
+  AttackRange: 2
+  HitboxWidth: 1
+  AnimatorOverride: {fileID: 0}
+  LightSwingSound: {fileID: 0}
+  HeavySwingSound: {fileID: 0}
+  HitSound: {fileID: 0}
