@@ -17,6 +17,10 @@ namespace _Scripts.Player.Components
         private static readonly int MoveYHash = Animator.StringToHash("MoveY");
         private static readonly int IsLockedOnHash = Animator.StringToHash("IsLockedOn");
 
+        // Momentum system parameters (ADR-005: additive, non-breaking)
+        private static readonly int TurnAngleHash = Animator.StringToHash("TurnAngle");
+        private static readonly int VelocityMagnitudeHash = Animator.StringToHash("VelocityMagnitude");
+
         // Layer indices
         private const int LockedLocomotionLayerIndex = 1;
         private const float LayerTransitionSpeed = 5f;
@@ -51,10 +55,14 @@ namespace _Scripts.Player.Components
         // References
         private PlayerController _player;
         private Animator _animator;
+        private MovementController _movementController;
 
         // Animation speed smoothing (local to this component)
         private float _currentSpeedMultiplier = 1f;
         private float _speedMultiplierVelocity;
+
+        // Root motion state for turn-in-place (ADR-003)
+        private bool _applyRootRotation;
 
         /// <summary>
         /// The controlled Animator component.
@@ -65,11 +73,45 @@ namespace _Scripts.Player.Components
         {
             _player = GetComponent<PlayerController>();
             _animator = GetComponentInChildren<Animator>();
+            _movementController = GetComponent<MovementController>();
 
             if (_animator != null)
             {
+                // Keep root motion disabled by default - we handle it manually in OnAnimatorMove
                 _animator.applyRootMotion = false;
             }
+        }
+
+        /// <summary>
+        /// OnAnimatorMove handles partial root motion for turn-in-place animations.
+        /// Per ADR-003: Apply rotation from animation, ignore position.
+        /// </summary>
+        private void OnAnimatorMove()
+        {
+            if (_animator == null || !_applyRootRotation) return;
+
+            // Apply rotation from animation (gives visual weight to turns)
+            transform.rotation = _animator.rootRotation;
+
+            // Position is ignored - MovementController handles all translation
+        }
+
+        /// <summary>
+        /// Enable root motion rotation for turn-in-place animations.
+        /// Call this when entering a turn animation state.
+        /// </summary>
+        public void EnableRootRotation()
+        {
+            _applyRootRotation = true;
+        }
+
+        /// <summary>
+        /// Disable root motion rotation.
+        /// Call this when exiting turn animation or entering other states.
+        /// </summary>
+        public void DisableRootRotation()
+        {
+            _applyRootRotation = false;
         }
 
         /// <summary>
@@ -130,6 +172,28 @@ namespace _Scripts.Player.Components
         {
             if (_animator == null) return;
             _animator.SetBool(IsLockedOnHash, isLockedOn);
+        }
+
+        /// <summary>
+        /// Set the turn angle for turn-in-place animation triggers.
+        /// Used by animator transitions to detect when turn animations should play.
+        /// </summary>
+        /// <param name="turnAngle">Angle in degrees (-180 to 180). Negative = left turn, positive = right turn</param>
+        public void SetTurnAngle(float turnAngle)
+        {
+            if (_animator == null) return;
+            _animator.SetFloat(TurnAngleHash, turnAngle);
+        }
+
+        /// <summary>
+        /// Set the actual velocity magnitude for animator transition conditions.
+        /// Useful for triggering start/stop animations based on real movement speed.
+        /// </summary>
+        /// <param name="velocityMagnitude">Current movement speed in units/second</param>
+        public void SetVelocityMagnitude(float velocityMagnitude)
+        {
+            if (_animator == null) return;
+            _animator.SetFloat(VelocityMagnitudeHash, velocityMagnitude);
         }
 
         /// <summary>

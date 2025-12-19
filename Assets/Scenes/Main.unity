@@ -1880,6 +1880,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e0e7b73f8bca4ad1b57782c5ab4d158, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Player.Components.HealthPoiseController
+  _onHealthChangedEvent: {fileID: 11400000, guid: 06f8cba2f96a945559283a5ce3b1586b, type: 2}
+  _onDeathEvent: {fileID: 11400000, guid: ad3c77f7498594d07be0659ea41c5559, type: 2}
+  _onPoiseBreakEvent: {fileID: 11400000, guid: a4d2725fb0d444388a0471acfe87b8ae, type: 2}
+  _onParrySuccessEvent: {fileID: 11400000, guid: f93fe2b36e6574a54a976ef6a7a0997a, type: 2}
 --- !u!114 &919869101
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1985,8 +1989,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.30434182, y: -0.00000003173941, z: 0.000000010140674, w: 0.9525629}
-  m_LocalPosition: {x: 5.2, y: 3.8058667, z: -3.3807404}
+  m_LocalRotation: {x: 0.25340128, y: 0.000000050259988, z: -0.000000013165657, w: 0.9673613}
+  m_LocalPosition: {x: 5.2, y: 3.65, z: -3.9999998}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2792,6 +2796,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 941037b4aaaf94a7d9f5b4fcb629986b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Combat.Systems.CombatSystem
+  _onDamageDealtEvent: {fileID: 0}
+  _onCombatantDeathEvent: {fileID: 0}
+  _onPoiseBreakEvent: {fileID: 0}
   _hitstopDuration: 0.05
   _hitstopDamageScale: 0.001
   _debugMode: 1

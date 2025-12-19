@@ -62,6 +62,35 @@ namespace _Scripts.Player.Data
         [Tooltip("Target-relative approach component of movement")]
         public float TargetRelativeApproach;
 
+        [Header("Momentum System")]
+        [Tooltip("Current actual velocity magnitude (0 to max speed)")]
+        public float CurrentVelocityMagnitude;
+
+        [Tooltip("Target velocity magnitude based on input and mode")]
+        public float TargetVelocityMagnitude;
+
+        [Tooltip("Time since movement started (for acceleration curve)")]
+        public float AccelerationTimer;
+
+        [Tooltip("Time since input stopped (for deceleration curve)")]
+        public float DecelerationTimer;
+
+        [Tooltip("True when actively accelerating (has input)")]
+        public bool IsAccelerating;
+
+        [Header("Turn Tracking")]
+        [Tooltip("Angle between current forward and target direction (-180 to 180)")]
+        public float TurnAngle;
+
+        [Tooltip("True when in turn-in-place state")]
+        public bool IsTurningInPlace;
+
+        [Tooltip("Progress through turn-in-place animation (0-1)")]
+        public float TurnProgress;
+
+        [Tooltip("Target direction for turn-in-place")]
+        public Vector3 TurnTargetDirection;
+
         /// <summary>
         /// Creates a SmoothingState with default values.
         /// </summary>
@@ -82,7 +111,18 @@ namespace _Scripts.Player.Data
                 MoveYVelocity = 0f,
                 LockedOnDistance = 0f,
                 TargetRelativeStrafe = 0f,
-                TargetRelativeApproach = 0f
+                TargetRelativeApproach = 0f,
+                // Momentum system
+                CurrentVelocityMagnitude = 0f,
+                TargetVelocityMagnitude = 0f,
+                AccelerationTimer = 0f,
+                DecelerationTimer = 0f,
+                IsAccelerating = false,
+                // Turn tracking
+                TurnAngle = 0f,
+                IsTurningInPlace = false,
+                TurnProgress = 0f,
+                TurnTargetDirection = Vector3.forward
             };
         }
 
@@ -98,6 +138,9 @@ namespace _Scripts.Player.Data
             RotationVelocity = 0f;
             MoveXVelocity = 0f;
             MoveYVelocity = 0f;
+            // Reset momentum timers
+            AccelerationTimer = 0f;
+            DecelerationTimer = 0f;
         }
 
         /// <summary>
