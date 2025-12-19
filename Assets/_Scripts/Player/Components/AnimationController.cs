@@ -21,6 +21,14 @@ namespace _Scripts.Player.Components
         private static readonly int TurnAngleHash = Animator.StringToHash("TurnAngle");
         private static readonly int VelocityMagnitudeHash = Animator.StringToHash("VelocityMagnitude");
 
+        // Start/Stop animation parameters
+        private static readonly int IsAcceleratingHash = Animator.StringToHash("IsAccelerating");
+        private static readonly int LocomotionModeHash = Animator.StringToHash("LocomotionMode");
+        private static readonly int WasMovingHash = Animator.StringToHash("WasMoving");
+
+        // Turn type parameter (cleaner than checking TurnAngle ranges in animator)
+        private static readonly int TurnTypeHash = Animator.StringToHash("TurnType");
+
         // Layer indices
         private const int LockedLocomotionLayerIndex = 1;
         private const float LayerTransitionSpeed = 5f;
@@ -194,6 +202,46 @@ namespace _Scripts.Player.Components
         {
             if (_animator == null) return;
             _animator.SetFloat(VelocityMagnitudeHash, velocityMagnitude);
+        }
+
+        /// <summary>
+        /// Set whether the player is currently accelerating (has input).
+        /// Used to distinguish start vs stop animations.
+        /// </summary>
+        public void SetIsAccelerating(bool isAccelerating)
+        {
+            if (_animator == null) return;
+            _animator.SetBool(IsAcceleratingHash, isAccelerating);
+        }
+
+        /// <summary>
+        /// Set the current locomotion mode for animation selection.
+        /// </summary>
+        /// <param name="mode">0 = Walk, 1 = Run, 2 = Sprint</param>
+        public void SetLocomotionMode(int mode)
+        {
+            if (_animator == null) return;
+            _animator.SetInteger(LocomotionModeHash, mode);
+        }
+
+        /// <summary>
+        /// Set whether the player was moving (for stop animation detection).
+        /// This tracks the previous frame's movement state.
+        /// </summary>
+        public void SetWasMoving(bool wasMoving)
+        {
+            if (_animator == null) return;
+            _animator.SetBool(WasMovingHash, wasMoving);
+        }
+
+        /// <summary>
+        /// Set the turn type for cleaner animator transitions.
+        /// </summary>
+        /// <param name="turnType">0=None, 1=Turn90Left, 2=Turn90Right, 3=Turn180</param>
+        public void SetTurnType(int turnType)
+        {
+            if (_animator == null) return;
+            _animator.SetInteger(TurnTypeHash, turnType);
         }
 
         /// <summary>

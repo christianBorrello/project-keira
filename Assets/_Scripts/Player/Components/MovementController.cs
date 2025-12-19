@@ -16,6 +16,17 @@ namespace _Scripts.Player.Components
     }
 
     /// <summary>
+    /// Turn type for animator state selection.
+    /// </summary>
+    public enum TurnType
+    {
+        None = 0,
+        Turn90Left = 1,
+        Turn90Right = 2,
+        Turn180 = 3
+    }
+
+    /// <summary>
     /// Manages player movement, gravity, rotation, and smoothing.
     /// Handles camera-relative movement with lock-on orbital support.
     /// </summary>
@@ -115,6 +126,11 @@ namespace _Scripts.Player.Components
         private float turnInPlaceThreshold = 45f;
 
         [SerializeField]
+        [Range(90f, 170f)]
+        [Tooltip("Angle threshold (degrees) to trigger 180-degree turn instead of 90-degree")]
+        private float turn180Threshold = 135f;
+
+        [SerializeField]
         [Range(0.1f, 2f)]
         [Tooltip("Speed threshold below which character is considered stationary for turn-in-place")]
         private float turnInPlaceSpeedThreshold = 0.5f;
@@ -122,6 +138,9 @@ namespace _Scripts.Player.Components
         [Header("Debug")]
         [SerializeField]
         private bool debugMode;
+
+        // Start/Stop animation tracking
+        private bool _wasMovingLastFrame;
 
         #region Properties
 
@@ -494,6 +513,23 @@ namespace _Scripts.Player.Components
             _smoothing.RotationVelocity = 0f;
         }
 
+        /// <summary>
+        /// Calculate turn type based on turn angle.
+        /// Used for cleaner animator transitions.
+        /// </summary>
+        private TurnType CalculateTurnType(float turnAngle)
+        {
+            float absTurnAngle = Mathf.Abs(turnAngle);
+
+            if (absTurnAngle < turnInPlaceThreshold)
+                return TurnType.None;
+
+            if (absTurnAngle >= turn180Threshold)
+                return TurnType.Turn180;
+
+            return turnAngle < 0 ? TurnType.Turn90Left : TurnType.Turn90Right;
+        }
+
         #endregion
 
         #region Momentum Helpers
@@ -696,6 +732,19 @@ namespace _Scripts.Player.Components
             // Momentum system parameters (ADR-005)
             _animationController.SetTurnAngle(_smoothing.TurnAngle);
             _animationController.SetVelocityMagnitude(_smoothing.CurrentVelocityMagnitude);
+
+            // Turn type for cleaner animator transitions
+            TurnType turnType = CalculateTurnType(_smoothing.TurnAngle);
+            _animationController.SetTurnType((int)turnType);
+
+            // Start/Stop animation parameters
+            _animationController.SetIsAccelerating(_smoothing.IsAccelerating);
+            _animationController.SetLocomotionMode((int)mode); // 0=Walk, 1=Run, 2=Sprint
+            _animationController.SetWasMoving(_wasMovingLastFrame);
+
+            // Track movement state for next frame (for stop detection)
+            bool isMovingNow = _smoothing.CurrentVelocityMagnitude > 0.5f;
+            _wasMovingLastFrame = isMovingNow;
 
             // Animation speed matching
             _animationController.UpdateAnimationSpeedMultiplier(_smoothing.CurrentVelocityMagnitude, mode);
