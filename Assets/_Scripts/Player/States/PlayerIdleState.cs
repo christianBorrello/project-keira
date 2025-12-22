@@ -11,27 +11,9 @@ namespace _Scripts.Player.States
     {
         public override PlayerState StateType => PlayerState.Idle;
 
-        // Debug
-        private Vector3 _debugEnterPosition;
-        private int _debugFrameCount;
-
         public override void Enter()
         {
             base.Enter();
-
-            _debugFrameCount = 0;
-
-            if (controller is not null)
-            {
-                _debugEnterPosition = controller.transform.position;
-                Debug.Log($"[IDLE] Enter - Position: {_debugEnterPosition}");
-
-                // DEBUG: Try disabling animator to see if it's the cause
-                if (controller.Animator is not null)
-                {
-                    Debug.Log($"[IDLE] Animator enabled: {controller.Animator.enabled}, applyRootMotion: {controller.Animator.applyRootMotion}");
-                }
-            }
 
             // Set animator for idle - Speed=0 drives Blend Tree to idle animation
             if (controller is not null && controller.Animator is not null)
@@ -45,26 +27,9 @@ namespace _Scripts.Player.States
         {
             base.Execute();
 
-            // Debug: Check if position changes in first few frames
-            if (_debugFrameCount < 10 && controller != null)
-            {
-                Vector3 currentPos = controller.transform.position;
-                Vector3 ccCenter = controller.CharacterController != null
-                    ? controller.CharacterController.transform.position
-                    : Vector3.zero;
-
-                if (Vector3.Distance(currentPos, _debugEnterPosition) > 0.01f)
-                {
-                    Debug.LogWarning($"[IDLE] Frame {_debugFrameCount} - Position CHANGED! " +
-                        $"Was: {_debugEnterPosition}, Now: {currentPos}, CC: {ccCenter}");
-
-                    // Log the full stack trace to see what's calling this
-                    Debug.LogWarning($"[IDLE] Stack: {UnityEngine.StackTraceUtility.ExtractStackTrace()}");
-                }
-                _debugFrameCount++;
-            }
-
-            // Idle allows transitions to any state, handled in HandleInput
+            // IMPORTANT: Call ApplyMovement with zero input to trigger deceleration
+            // This ensures the momentum system properly decelerates when entering idle
+            controller?.ApplyMovement(Vector2.zero, Components.LocomotionMode.Run);
         }
 
         public override void HandleInput(InputSnapshot input)

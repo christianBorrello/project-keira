@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using _Scripts.Combat.Data;
 using _Scripts.Combat.Interfaces;
+using _Scripts.Core.Events.Types;
 using _Scripts.Utilities;
 using UnityEngine;
 

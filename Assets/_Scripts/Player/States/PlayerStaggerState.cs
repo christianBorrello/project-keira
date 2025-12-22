@@ -115,7 +115,8 @@ namespace _Scripts.Player.States
             float normalizedTime = NormalizedTime;
 
             // Apply knockback movement first
-            if (controller is not null && controller.CharacterController is not null && _knockbackDistance > 0)
+            // TODO KCC Phase 5.5: Use ExternalForcesManager for knockback
+            if (controller is not null && controller.Motor is not null && _knockbackDistance > 0)
             {
                 float previousProgress = _knockbackProgress;
                 _knockbackProgress = KnockbackCurve.Evaluate(Mathf.Min(normalizedTime * 3f, 1f));
@@ -124,7 +125,11 @@ namespace _Scripts.Player.States
                 Vector3 movement = frameDelta * _knockbackDistance * _staggerDirection;
                 movement.y = -20f * Time.deltaTime;
 
-                controller.CharacterController.Move(movement);
+                // KCC: Use motor's transient position for knockback
+                controller.Motor.SetPositionAndRotation(
+                    controller.Motor.TransientPosition + movement,
+                    controller.Motor.TransientRotation
+                );
             }
 
             // Update recovery window

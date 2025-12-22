@@ -1,6 +1,8 @@
 using System;
 using _Scripts.Combat.Data;
 using _Scripts.Combat.Interfaces;
+using _Scripts.Core.Events;
+using _Scripts.Core.Events.Types;
 using UnityEngine;
 
 namespace _Scripts.Player.Components

@@ -144,7 +144,8 @@ namespace _Scripts.Player.States
             float normalizedTime = NormalizedTime;
 
             // Apply movement first
-            if (controller != null && controller.CharacterController != null)
+            // TODO KCC Phase 5.5: Use external forces or motor.SetPositionAndRotation for dodge
+            if (controller != null && controller.Motor != null)
             {
                 float previousProgress = _dodgeProgress;
                 _dodgeProgress = DodgeCurve.Evaluate(normalizedTime);
@@ -154,7 +155,11 @@ namespace _Scripts.Player.States
                 float gravity = -20f * Time.deltaTime;
                 movement.y = gravity;
 
-                controller.CharacterController.Move(movement);
+                // KCC: Use motor's transient position for dodge movement
+                controller.Motor.SetPositionAndRotation(
+                    controller.Motor.TransientPosition + movement,
+                    controller.Motor.TransientRotation
+                );
 
                 if (_currentDodgeType == DodgeType.Roll && _dodgeDirection.sqrMagnitude > 0.01f)
                 {

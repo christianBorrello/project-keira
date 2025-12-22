@@ -1,5 +1,7 @@
 using _Scripts.Camera;
 using _Scripts.Player.Data;
+using _Scripts.Player.Components;
+using Imports.Core;
 using Systems;
 using UnityEngine;
 
@@ -29,21 +31,54 @@ namespace _Scripts.Player.Components
     /// <summary>
     /// Manages player movement, gravity, rotation, and smoothing.
     /// Handles camera-relative movement with lock-on orbital support.
+    /// Implements ICharacterController for KCC integration.
     /// </summary>
     [RequireComponent(typeof(PlayerController))]
-    [RequireComponent(typeof(CharacterController))]
-    public class MovementController : MonoBehaviour
+    [RequireComponent(typeof(KinematicCharacterMotor))]
+    public class MovementController : MonoBehaviour, ICharacterController
     {
         // References
         private PlayerController _player;
-        private CharacterController _characterController;
+        private KinematicCharacterMotor _motor;
         private AnimationController _animationController;
         private LockOnController _lockOnController;
+        private ExternalForcesManager _externalForces;
         private Transform _cameraTransform;
 
         // Gravity
         private float _verticalVelocity;
         private const float Gravity = -20f;
+
+        // KCC Movement Intent - bridges Update (input) to FixedUpdate (physics)
+        private MovementIntent _intent;
+
+        /// <summary>
+        /// Cached movement input for KCC callback system.
+        /// Bridges Update (60-144Hz) to FixedUpdate (50Hz) timing gap.
+        /// </summary>
+        private struct MovementIntent
+        {
+            public Vector2 RawInput;           // Original input from InputHandler
+            public Vector3 WorldDirection;     // Camera-relative direction (pre-calculated)
+            public LocomotionMode Mode;        // Walk/Run/Sprint
+            public float Timestamp;            // Time.time when cached
+            public bool IsValid;               // Explicitly set when input received
+
+            /// <summary>
+            /// Intent is stale if older than 100ms (missed FixedUpdate cycles).
+            /// </summary>
+            public readonly bool IsStale => IsValid && (Time.time - Timestamp > 0.1f);
+
+            /// <summary>
+            /// Reset intent to invalid state after consumption.
+            /// </summary>
+            public void Invalidate()
+            {
+                IsValid = false;
+                RawInput = Vector2.zero;
+                WorldDirection = Vector3.zero;
+            }
+        }
 
         // Consolidated smoothing state (movement, rotation, animation)
         [Header("Smoothing State (Debug)")]
@@ -100,13 +135,24 @@ namespace _Scripts.Player.Components
 
         [SerializeField]
         [Range(0.05f, 0.5f)]
-        [Tooltip("Time in seconds to reach full speed from standstill")]
+        [Tooltip("Time in seconds to reach full speed from standstill (free movement)")]
         private float accelerationDuration = 0.2f;
 
         [SerializeField]
         [Range(0.05f, 0.5f)]
-        [Tooltip("Time in seconds to stop from full speed")]
+        [Tooltip("Time in seconds to stop from full speed (free movement)")]
         private float decelerationDuration = 0.15f;
+
+        [Header("Lock-On Momentum (separate tuning)")]
+        [SerializeField]
+        [Range(0.1f, 1.0f)]
+        [Tooltip("Time in seconds to reach full speed when locked on (longer = more gradual start)")]
+        private float lockedOnAccelerationDuration = 0.4f;
+
+        [SerializeField]
+        [Range(0.1f, 1.0f)]
+        [Tooltip("Time in seconds to stop when locked on (longer = more gradual stop)")]
+        private float lockedOnDecelerationDuration = 0.35f;
 
         [Header("Pivot Settings")]
         [SerializeField]
@@ -145,14 +191,19 @@ namespace _Scripts.Player.Components
         #region Properties
 
         /// <summary>
-        /// Whether the character is grounded.
+        /// Whether the character is grounded (uses KCC's stable ground detection).
         /// </summary>
-        public bool IsGrounded => _characterController?.isGrounded ?? false;
+        public bool IsGrounded => _motor?.GroundingStatus.IsStableOnGround ?? false;
 
         /// <summary>
         /// Current vertical velocity (gravity).
         /// </summary>
         public float VerticalVelocity => _verticalVelocity;
+
+        /// <summary>
+        /// External forces manager for knockback, explosions, etc.
+        /// </summary>
+        public ExternalForcesManager ExternalForces => _externalForces;
 
         #endregion
 
@@ -161,13 +212,23 @@ namespace _Scripts.Player.Components
         private void Awake()
         {
             _player = GetComponent<PlayerController>();
-            _characterController = GetComponent<CharacterController>();
+            _motor = GetComponent<KinematicCharacterMotor>();
+
+            // Wire up KCC - tell the motor that we are its character controller
+            _motor.CharacterController = this;
         }
 
         private void Start()
         {
             _animationController = _player.AnimationController;
             _lockOnController = _player.LockOnController;
+            _externalForces = GetComponent<ExternalForcesManager>();
+
+            // Auto-add ExternalForcesManager if not present
+            if (_externalForces == null)
+            {
+                _externalForces = gameObject.AddComponent<ExternalForcesManager>();
+            }
 
             // Auto-find camera if not assigned (prefer ThirdPersonCameraSystem)
             if (_cameraTransform == null)
@@ -179,7 +240,7 @@ namespace _Scripts.Player.Components
 
         private void Update()
         {
-            ApplyGravity();
+            // Gravity is handled in UpdateVelocity (KCC callback)
             UpdateSmoothingDecay();
         }
 
@@ -189,25 +250,81 @@ namespace _Scripts.Player.Components
 
         /// <summary>
         /// Apply movement based on input. Called by states via PlayerController.
-        /// Branches between lock-on movement (existing) and momentum-based movement (new).
+        /// Caches intent for KCC callbacks, then updates animation/smoothing state.
         /// </summary>
         public void ApplyMovement(Vector2 moveInput, LocomotionMode mode)
         {
-            if (_characterController == null || _cameraTransform == null)
+            // DEBUG: Log what's null
+            if (_motor == null)
+            {
+                Debug.LogError("[MovementController] _motor is NULL!");
                 return;
+            }
+            if (_cameraTransform == null)
+            {
+                Debug.LogError("[MovementController] _cameraTransform is NULL! Trying to find camera...");
+                _cameraTransform = ThirdPersonCameraSystem.Instance?.transform
+                    ?? UnityEngine.Camera.main?.transform;
+                if (_cameraTransform == null)
+                {
+                    Debug.LogError("[MovementController] Could not find any camera!");
+                    return;
+                }
+            }
+
+            // Cache intent for KCC callbacks (Update→FixedUpdate bridge)
+            CacheMovementIntent(moveInput, mode);
 
             bool isLockedOn = _lockOnController?.IsLockedOn ?? false;
 
             if (isLockedOn)
             {
-                // Use existing lock-on movement logic (preserved)
+                // Update smoothing/animation state for lock-on
                 ApplyLockedOnMovement(moveInput, mode);
             }
             else
             {
-                // Use new momentum-based movement
+                // Clear lock-on distance correction when not locked on
+                // Prevents residual velocity from persisting after unlock
+                _smoothing.LockOnDistanceCorrection = Vector3.zero;
+
+                // Update smoothing/animation state for momentum movement
                 ApplyMomentumMovement(moveInput, mode);
             }
+        }
+
+        /// <summary>
+        /// Cache movement intent for consumption by KCC callbacks.
+        /// Pre-calculates camera-relative direction in Update for efficiency.
+        /// Validates input to protect against NaN/Infinity from hardware glitches.
+        /// </summary>
+        private void CacheMovementIntent(Vector2 moveInput, LocomotionMode mode)
+        {
+            // P0 FIX: Validate input before processing to prevent NaN propagation
+            if (!IsValidVector2(moveInput))
+            {
+                if (debugMode)
+                    Debug.LogWarning("[MovementController] Invalid input detected (NaN/Infinity), clamping to zero");
+                moveInput = Vector2.zero;
+            }
+
+            Vector3 worldDirection = GetCameraRelativeDirection(moveInput);
+
+            // P0 FIX: Validate camera calculation result
+            if (!IsValidVector3(worldDirection))
+            {
+                Debug.LogError("[MovementController] Camera calculation produced invalid direction!");
+                worldDirection = Vector3.zero;
+            }
+
+            _intent = new MovementIntent
+            {
+                RawInput = moveInput,
+                WorldDirection = worldDirection,
+                Mode = mode,
+                Timestamp = Time.time,
+                IsValid = moveInput.sqrMagnitude > 0.001f && IsValidVector2(moveInput)
+            };
         }
 
         /// <summary>
@@ -231,11 +348,7 @@ namespace _Scripts.Player.Components
             {
                 HandleTurnInPlace(targetDirection);
 
-                // During turn-in-place: only apply gravity, no locomotion
-                Vector3 gravityMotion = Vector3.zero;
-                gravityMotion.y = _verticalVelocity * Time.deltaTime;
-                _characterController.Move(gravityMotion);
-
+                // During turn-in-place: no horizontal movement, rotation handled in UpdateRotation
                 // Update animation parameters with turn info
                 UpdateMomentumAnimationParameters(moveInput, mode);
                 return;
@@ -282,33 +395,18 @@ namespace _Scripts.Player.Components
                 hasInput ? movementSmoothTime : moveDirectionDecayTime
             );
 
-            // Apply rotation toward movement direction
-            if (hasInput || _smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
-            {
-                ApplyMomentumRotation(targetDirection, turnAngle);
-            }
+            // Rotation is now handled in UpdateRotation callback (KCC FixedUpdate)
+            // using _smoothing.SmoothedMoveDirection calculated above
 
-            // Apply movement
-            if (_smoothing.CurrentVelocityMagnitude > 0.01f && _smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
-            {
-                Vector3 motion = _smoothing.CurrentVelocityMagnitude * Time.deltaTime * _smoothing.SmoothedMoveDirection.normalized;
-                motion.y = _verticalVelocity * Time.deltaTime;
-                _characterController.Move(motion);
-            }
-            else
-            {
-                // Still apply gravity when not moving
-                Vector3 motion = Vector3.zero;
-                motion.y = _verticalVelocity * Time.deltaTime;
-                _characterController.Move(motion);
-            }
+            // Movement is applied in UpdateVelocity via CalculateGroundVelocity()
 
             // Update animation parameters
             UpdateMomentumAnimationParameters(moveInput, mode);
         }
 
         /// <summary>
-        /// Original lock-on movement logic (preserved for compatibility).
+        /// Lock-on movement with orbital strafing around target.
+        /// Updates smoothing state for consumption by UpdateVelocity.
         /// </summary>
         private void ApplyLockedOnMovement(Vector2 moveInput, LocomotionMode mode)
         {
@@ -355,6 +453,12 @@ namespace _Scripts.Player.Components
                 }
             }
 
+            // Check if player has movement input
+            bool hasInput = moveInput.sqrMagnitude > 0.01f;
+
+            // Update acceleration/deceleration timers (shared with momentum system)
+            UpdateMomentumTimers(hasInput);
+
             // Use SmoothDamp for smooth direction changes
             _smoothing.SmoothedMoveDirection = Vector3.SmoothDamp(
                 _smoothing.SmoothedMoveDirection,
@@ -365,7 +469,29 @@ namespace _Scripts.Player.Components
 
             if (_smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
             {
-                float speed = GetSpeedForMode(mode);
+                float targetSpeed = GetSpeedForMode(mode);
+
+                if (hasInput)
+                {
+                    // Accelerating - player is pressing movement keys
+                    // Use lock-on specific duration for more gradual acceleration
+                    float speedFactor = EvaluateLockedOnAccelerationCurve();
+                    _smoothing.TargetVelocityMagnitude = targetSpeed;
+                    _smoothing.CurrentVelocityMagnitude = targetSpeed * speedFactor;
+
+                    if (debugMode)
+                        Debug.Log($"[LockOn ACCEL] timer={_smoothing.AccelerationTimer:F3}, duration={lockedOnAccelerationDuration:F2}, factor={speedFactor:F2}, vel={_smoothing.CurrentVelocityMagnitude:F2}");
+                }
+                else
+                {
+                    // Decelerating - player released input but still has momentum
+                    // Use lock-on specific duration for more gradual deceleration
+                    float speedFactor = EvaluateLockedOnDecelerationCurve();
+                    _smoothing.CurrentVelocityMagnitude = _smoothing.TargetVelocityMagnitude * speedFactor;
+
+                    if (debugMode)
+                        Debug.Log($"[LockOn DECEL] timer={_smoothing.DecelerationTimer:F3}, duration={lockedOnDecelerationDuration:F2}, factor={speedFactor:F2}, vel={_smoothing.CurrentVelocityMagnitude:F2}");
+                }
 
                 // Face target when locked on
                 if (currentTarget != null)
@@ -378,10 +504,7 @@ namespace _Scripts.Player.Components
                     }
                 }
 
-                // Apply movement
-                Vector3 motion = Time.deltaTime * speed * _smoothing.SmoothedMoveDirection;
-                motion.y = _verticalVelocity * Time.deltaTime;
-                _characterController.Move(motion);
+                // Movement is applied in UpdateVelocity via CalculateGroundVelocity()
 
                 // Maintain distance from target during pure strafe
                 if (currentTarget != null && _lockOnController != null)
@@ -395,22 +518,44 @@ namespace _Scripts.Player.Components
 
                     if (approachComp < 0.3f && currentDistance > 0.1f)
                     {
-                        Vector3 correctedPosition = currentTarget.LockOnPoint - toTargetNorm * _lockOnController.LockedOnDistance;
-                        correctedPosition.y = transform.position.y;
-                        Vector3 correction = correctedPosition - transform.position;
-                        _characterController.Move(correction);
+                        // Pure strafe - apply velocity correction to maintain locked distance
+                        float distanceError = currentDistance - _lockOnController.LockedOnDistance;
+                        const float correctionStrength = 3f; // Units per second per unit of error
+
+                        // Add correction velocity toward/away from target
+                        Vector3 correctionVelocity = toTargetNorm * (distanceError * correctionStrength);
+                        _smoothing.LockOnDistanceCorrection = correctionVelocity;
                     }
                     else
                     {
+                        // Approaching or retreating - update locked distance, clear correction
                         _lockOnController.SetLockedOnDistance(currentDistance);
+                        _smoothing.LockOnDistanceCorrection = Vector3.zero;
                     }
+                }
+                else
+                {
+                    _smoothing.LockOnDistanceCorrection = Vector3.zero;
                 }
             }
             else
             {
-                Vector3 motion = Vector3.zero;
-                motion.y = _verticalVelocity * Time.deltaTime;
-                _characterController.Move(motion);
+                // No movement input - use lock-on deceleration curve for gradual stop
+                float speedFactor = EvaluateLockedOnDecelerationCurve();
+                _smoothing.CurrentVelocityMagnitude = _smoothing.TargetVelocityMagnitude * speedFactor;
+
+                if (debugMode)
+                    Debug.Log($"[LockOn DECEL-ELSE] timer={_smoothing.DecelerationTimer:F3}, duration={lockedOnDecelerationDuration:F2}, factor={speedFactor:F2}, vel={_smoothing.CurrentVelocityMagnitude:F2}");
+
+                // Only zero out target velocity after deceleration is complete
+                if (speedFactor < 0.01f)
+                {
+                    _smoothing.TargetVelocityMagnitude = 0f;
+                    _smoothing.DecelerationDirection = Vector3.zero; // Clear preserved direction
+                }
+
+                // Clear distance correction to prevent sliding when stopped
+                _smoothing.LockOnDistanceCorrection = Vector3.zero;
             }
 
             // Update animation parameters (original logic)
@@ -443,6 +588,7 @@ namespace _Scripts.Player.Components
         /// <summary>
         /// Handle turn-in-place state. Called when character needs to rotate significantly while stationary.
         /// Sets animator parameters and tracks progress until rotation is complete.
+        /// NOTE: Actual rotation is handled in UpdateRotation() callback for KCC compatibility.
         /// </summary>
         private void HandleTurnInPlace(Vector3 targetDirection)
         {
@@ -456,31 +602,23 @@ namespace _Scripts.Player.Components
             float currentTurnAngle = CalculateTurnAngle(transform.forward, targetDirection);
 
             // Check if turn is complete (within small threshold)
-            if (Mathf.Abs(currentTurnAngle) < 10f)
+            if (Mathf.Abs(currentTurnAngle) < 15f)
             {
                 ExitTurnInPlace();
                 return;
             }
 
-            // Update turn progress (0-1 based on remaining angle)
-            float startAngle = CalculateTurnAngle(transform.forward, _smoothing.TurnTargetDirection);
-            _smoothing.TurnProgress = 1f - Mathf.Clamp01(Mathf.Abs(currentTurnAngle) / Mathf.Max(Mathf.Abs(startAngle), 1f));
+            // Update turn progress (0-1 based on remaining angle vs initial angle)
+            float initialAngle = Mathf.Abs(CalculateTurnAngle(transform.forward, _smoothing.TurnTargetDirection));
+            if (initialAngle > 1f)
+            {
+                _smoothing.TurnProgress = 1f - Mathf.Clamp01(Mathf.Abs(currentTurnAngle) / initialAngle);
+            }
 
             // Update animator with current turn angle for animation selection
             _smoothing.TurnAngle = currentTurnAngle;
 
-            // Apply rotation (faster than normal movement rotation)
-            float turnRotationMultiplier = 2f; // Turn-in-place rotates faster
-            float adjustedSmoothTime = characterRotationSmoothTime / turnRotationMultiplier;
-            float targetAngle = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
-
-            float smoothedAngle = Mathf.SmoothDampAngle(
-                transform.eulerAngles.y,
-                targetAngle,
-                ref _smoothing.RotationVelocity,
-                adjustedSmoothTime
-            );
-            transform.rotation = Quaternion.Euler(0f, smoothedAngle, 0f);
+            // Rotation is handled in UpdateRotation() using TurnTargetDirection
         }
 
         /// <summary>
@@ -577,6 +715,7 @@ namespace _Scripts.Player.Components
         /// <summary>
         /// Update acceleration/deceleration timers based on input state.
         /// Includes hysteresis to handle erratic/stuttery input gracefully.
+        /// Also preserves movement direction when deceleration starts.
         /// </summary>
         private void UpdateMomentumTimers(bool hasInput)
         {
@@ -600,6 +739,8 @@ namespace _Scripts.Player.Components
                         _smoothing.AccelerationTimer = 0f;
                     }
                     _smoothing.IsAccelerating = true;
+                    // Clear deceleration direction when accelerating again
+                    _smoothing.DecelerationDirection = Vector3.zero;
                 }
                 _smoothing.AccelerationTimer += Time.deltaTime;
                 _smoothing.DecelerationTimer = 0f;
@@ -608,9 +749,15 @@ namespace _Scripts.Player.Components
             {
                 if (_smoothing.IsAccelerating)
                 {
-                    // Just stopped - reset deceleration timer
+                    // Just stopped - reset deceleration timer and save current direction
                     _smoothing.DecelerationTimer = 0f;
                     _smoothing.IsAccelerating = false;
+
+                    // Preserve direction for deceleration (prevents early direction decay)
+                    if (_smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
+                    {
+                        _smoothing.DecelerationDirection = _smoothing.SmoothedMoveDirection.normalized;
+                    }
                 }
                 _smoothing.DecelerationTimer += Time.deltaTime;
             }
@@ -635,6 +782,28 @@ namespace _Scripts.Player.Components
         {
             if (decelerationDuration <= 0f) return 0f;
             float normalizedTime = Mathf.Clamp01(_smoothing.DecelerationTimer / decelerationDuration);
+            return decelerationCurve.Evaluate(normalizedTime);
+        }
+
+        /// <summary>
+        /// Evaluate acceleration curve for lock-on movement (uses separate duration).
+        /// Returns 0-1 speed factor.
+        /// </summary>
+        private float EvaluateLockedOnAccelerationCurve()
+        {
+            if (lockedOnAccelerationDuration <= 0f) return 1f;
+            float normalizedTime = Mathf.Clamp01(_smoothing.AccelerationTimer / lockedOnAccelerationDuration);
+            return accelerationCurve.Evaluate(normalizedTime);
+        }
+
+        /// <summary>
+        /// Evaluate deceleration curve for lock-on movement (uses separate duration).
+        /// Returns 1-0 speed factor.
+        /// </summary>
+        private float EvaluateLockedOnDecelerationCurve()
+        {
+            if (lockedOnDecelerationDuration <= 0f) return 0f;
+            float normalizedTime = Mathf.Clamp01(_smoothing.DecelerationTimer / lockedOnDecelerationDuration);
             return decelerationCurve.Evaluate(normalizedTime);
         }
 
@@ -754,13 +923,23 @@ namespace _Scripts.Player.Components
         {
             if (_animationController == null) return;
 
+            // Calculate velocity factor (0-1) based on current vs target speed
+            // This syncs animation blend with actual movement velocity
+            float velocityFactor = 0f;
+            float targetSpeed = GetSpeedForMode(mode);
+            if (targetSpeed > 0.01f)
+            {
+                velocityFactor = Mathf.Clamp01(_smoothing.CurrentVelocityMagnitude / targetSpeed);
+            }
+
             // Normalize speed for animator: 0 = idle, 0.5 = walk, 1 = run, 2 = sprint
+            // Scale by velocity factor so animation matches movement acceleration
             float normalizedSpeed = mode switch
             {
-                LocomotionMode.Walk => moveInput.magnitude * 0.5f,
-                LocomotionMode.Run => moveInput.magnitude,
-                LocomotionMode.Sprint => moveInput.magnitude * 2f,
-                _ => moveInput.magnitude
+                LocomotionMode.Walk => velocityFactor * 0.5f,
+                LocomotionMode.Run => velocityFactor,
+                LocomotionMode.Sprint => velocityFactor * 2f,
+                _ => velocityFactor
             };
             _smoothing.CurrentAnimatorSpeed = Mathf.SmoothDamp(
                 _smoothing.CurrentAnimatorSpeed,
@@ -771,10 +950,13 @@ namespace _Scripts.Player.Components
             _animationController.SetSpeed(_smoothing.CurrentAnimatorSpeed);
 
             // Calculate local movement direction for lock-on animations
+            // Scale by velocity factor so animation starts slow and accelerates with movement
             if (isLockedOn && _smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
             {
-                _smoothing.LocalMoveX = Mathf.SmoothDamp(_smoothing.LocalMoveX, moveInput.x, ref _smoothing.MoveXVelocity, animatorSmoothTime);
-                _smoothing.LocalMoveY = Mathf.SmoothDamp(_smoothing.LocalMoveY, moveInput.y, ref _smoothing.MoveYVelocity, animatorSmoothTime);
+                float targetMoveX = moveInput.x * velocityFactor;
+                float targetMoveY = moveInput.y * velocityFactor;
+                _smoothing.LocalMoveX = Mathf.SmoothDamp(_smoothing.LocalMoveX, targetMoveX, ref _smoothing.MoveXVelocity, animatorSmoothTime);
+                _smoothing.LocalMoveY = Mathf.SmoothDamp(_smoothing.LocalMoveY, targetMoveY, ref _smoothing.MoveYVelocity, animatorSmoothTime);
             }
             else if (isLockedOn)
             {
@@ -821,17 +1003,8 @@ namespace _Scripts.Player.Components
 
         #region Gravity
 
-        private void ApplyGravity()
-        {
-            if (_characterController.isGrounded)
-            {
-                _verticalVelocity = -2f; // Small downward force to keep grounded
-            }
-            else
-            {
-                _verticalVelocity += Gravity * Time.deltaTime;
-            }
-        }
+        // Note: Gravity is now handled in UpdateVelocity callback (KCC integration)
+        // The _verticalVelocity field and VerticalVelocity property are kept for debugging
 
         #endregion
 
@@ -880,6 +1053,30 @@ namespace _Scripts.Player.Components
 
         #endregion
 
+        #region Input Validation
+
+        /// <summary>
+        /// Validates that a Vector2 does not contain NaN or Infinity values.
+        /// Protects against corrupted input from hardware glitches or driver bugs.
+        /// </summary>
+        private static bool IsValidVector2(Vector2 v)
+        {
+            return !float.IsNaN(v.x) && !float.IsNaN(v.y)
+                && !float.IsInfinity(v.x) && !float.IsInfinity(v.y);
+        }
+
+        /// <summary>
+        /// Validates that a Vector3 does not contain NaN or Infinity values.
+        /// Protects against corrupted calculations from invalid input propagation.
+        /// </summary>
+        private static bool IsValidVector3(Vector3 v)
+        {
+            return !float.IsNaN(v.x) && !float.IsNaN(v.y) && !float.IsNaN(v.z)
+                && !float.IsInfinity(v.x) && !float.IsInfinity(v.y) && !float.IsInfinity(v.z);
+        }
+
+        #endregion
+
         #region Curve Helpers
 
         /// <summary>
@@ -906,6 +1103,209 @@ namespace _Scripts.Player.Components
                 new Keyframe(0.5f, 0.3f, -1f, -0.5f), // Quick initial decel
                 new Keyframe(1f, 0f, -0.5f, 0f)    // Ease to stop
             );
+        }
+
+        #endregion
+
+        #region ICharacterController Implementation
+
+        /// <summary>
+        /// Called before the motor does anything. Validate intent, update forces, check turn-in-place.
+        /// </summary>
+        public void BeforeCharacterUpdate(float deltaTime)
+        {
+            // Phase 5.2+: Will validate cached intent and update external forces
+        }
+
+        /// <summary>
+        /// Called when the motor wants to know what velocity should be.
+        /// Core movement logic: momentum curves, lock-on, external forces, gravity.
+        /// </summary>
+        public void UpdateVelocity(ref Vector3 currentVelocity, float deltaTime)
+        {
+            // Calculate horizontal velocity from smoothing state
+            Vector3 targetVelocity = CalculateGroundVelocity();
+
+            // Apply velocity (XZ plane)
+            currentVelocity.x = targetVelocity.x;
+            currentVelocity.z = targetVelocity.z;
+
+            // Apply gravity (Y axis)
+            if (!_motor.GroundingStatus.IsStableOnGround)
+            {
+                currentVelocity.y += Gravity * deltaTime;
+            }
+            else
+            {
+                // Small downward force to stay grounded and trigger ground detection
+                currentVelocity.y = -2f;
+            }
+
+            // Add external forces (knockback, explosions, environmental)
+            if (_externalForces != null && _externalForces.HasActiveForces)
+            {
+                Vector3 externalForce = _externalForces.GetCurrentForce();
+                currentVelocity += externalForce;
+            }
+
+            if (debugMode && targetVelocity.sqrMagnitude > 0.01f)
+            {
+                Debug.Log($"[KCC] UpdateVelocity: {targetVelocity.magnitude:F2} m/s, grounded: {_motor.GroundingStatus.IsStableOnGround}");
+            }
+        }
+
+        /// <summary>
+        /// Calculate ground velocity from current smoothing state.
+        /// Consumes the pre-calculated values from ApplyMomentumMovement/ApplyLockedOnMovement.
+        /// </summary>
+        private Vector3 CalculateGroundVelocity()
+        {
+            // During turn-in-place, no horizontal movement
+            if (_smoothing.IsTurningInPlace)
+            {
+                return Vector3.zero;
+            }
+
+            Vector3 baseVelocity = Vector3.zero;
+
+            // Use smoothed direction and velocity magnitude calculated in Update
+            if (_smoothing.CurrentVelocityMagnitude > 0.01f)
+            {
+                // Prefer SmoothedMoveDirection if it has magnitude
+                if (_smoothing.SmoothedMoveDirection.sqrMagnitude > 0.01f)
+                {
+                    baseVelocity = _smoothing.SmoothedMoveDirection.normalized * _smoothing.CurrentVelocityMagnitude;
+                }
+                // Fall back to DecelerationDirection during deceleration (direction decayed but velocity remains)
+                else if (_smoothing.DecelerationDirection.sqrMagnitude > 0.01f)
+                {
+                    baseVelocity = _smoothing.DecelerationDirection.normalized * _smoothing.CurrentVelocityMagnitude;
+                }
+            }
+
+            // Add lock-on distance correction (maintains orbit radius during strafe)
+            if (_smoothing.LockOnDistanceCorrection.sqrMagnitude > 0.01f)
+            {
+                baseVelocity += _smoothing.LockOnDistanceCorrection;
+            }
+
+            return baseVelocity;
+        }
+
+        /// <summary>
+        /// Called when the motor wants to know what rotation should be.
+        /// Syncs rotation calculated in Update to the motor's physics system.
+        /// Rotation logic stays in Update for smooth interpolation at high FPS.
+        /// </summary>
+        public void UpdateRotation(ref Quaternion currentRotation, float deltaTime)
+        {
+            // Lock-on: face target
+            if (_lockOnController != null && _lockOnController.IsLockedOn && _lockOnController.CurrentTarget != null)
+            {
+                Vector3 toTarget = _lockOnController.CurrentTarget.LockOnPoint - transform.position;
+                toTarget.y = 0f;
+                if (toTarget.sqrMagnitude > 0.01f)
+                {
+                    Quaternion targetRotation = Quaternion.LookRotation(toTarget.normalized);
+                    currentRotation = Quaternion.Slerp(currentRotation, targetRotation, 10f * deltaTime);
+                }
+                return;
+            }
+
+            // Turn-in-place: rotate faster toward target direction
+            if (_smoothing.IsTurningInPlace && _smoothing.TurnTargetDirection.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(_smoothing.TurnTargetDirection.normalized);
+
+                // Turn-in-place uses faster rotation (2x normal speed)
+                float turnInPlaceSpeed = 2f / Mathf.Max(characterRotationSmoothTime, 0.01f);
+                currentRotation = Quaternion.Slerp(currentRotation, targetRot, turnInPlaceSpeed * deltaTime);
+                return;
+            }
+
+            // Free movement: rotate toward movement direction
+            Vector3 rotationTarget = _smoothing.SmoothedMoveDirection;
+            if (rotationTarget.sqrMagnitude < 0.01f)
+            {
+                // No movement direction - keep current rotation
+                return;
+            }
+
+            // Calculate target rotation from movement direction
+            Quaternion targetRot2 = Quaternion.LookRotation(rotationTarget.normalized);
+
+            // Smooth rotation using characterRotationSmoothTime
+            // Faster rotation when more misaligned
+            float angleDiff = Quaternion.Angle(currentRotation, targetRot2);
+            float rotationMultiplier = 1f + (angleDiff / 90f) * (misalignedRotationMultiplier - 1f);
+            float rotationSpeed = rotationMultiplier / Mathf.Max(characterRotationSmoothTime, 0.01f);
+
+            currentRotation = Quaternion.Slerp(currentRotation, targetRot2, rotationSpeed * deltaTime);
+        }
+
+        /// <summary>
+        /// Called after ground probing but before velocity/physics handling.
+        /// Update animator parameters based on grounding state.
+        /// </summary>
+        public void PostGroundingUpdate(float deltaTime)
+        {
+            // Phase 5.3+: Will update animator parameters here
+        }
+
+        /// <summary>
+        /// Called after the motor has finished everything.
+        /// Invalidate intent, cleanup forces, reset per-frame state.
+        /// </summary>
+        public void AfterCharacterUpdate(float deltaTime)
+        {
+            // Invalidate movement intent - consumed for this frame
+            _intent.Invalidate();
+        }
+
+        /// <summary>
+        /// Determines if a collider should be considered for collisions.
+        /// </summary>
+        public bool IsColliderValidForCollisions(Collider coll)
+        {
+            // Accept all colliders by default
+            // Future: Add layer filtering, trigger exclusion
+            return true;
+        }
+
+        /// <summary>
+        /// Called when ground probing detects a ground hit.
+        /// </summary>
+        public void OnGroundHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
+            ref HitStabilityReport hitStabilityReport)
+        {
+            // Future: Footstep sounds, ground material detection
+        }
+
+        /// <summary>
+        /// Called when movement logic detects a hit.
+        /// </summary>
+        public void OnMovementHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
+            ref HitStabilityReport hitStabilityReport)
+        {
+            // Future: Wall slide, obstacle detection
+        }
+
+        /// <summary>
+        /// Called after every move hit to allow modifying the stability report.
+        /// </summary>
+        public void ProcessHitStabilityReport(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint,
+            Vector3 atCharacterPosition, Quaternion atCharacterRotation,
+            ref HitStabilityReport hitStabilityReport)
+        {
+            // Future: Custom slope stability logic
+        }
+
+        /// <summary>
+        /// Called when discrete collisions are detected (not from movement capsule casts).
+        /// </summary>
+        public void OnDiscreteCollisionDetected(Collider hitCollider)
+        {
+            // Future: Trigger interactions, damage zones
         }
 
         #endregion

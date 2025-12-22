@@ -99,7 +99,7 @@ namespace _Scripts.Player.States
         private void ApplyBlockMovement(Vector2 moveInput)
         {
             var cameraTransform = UnityEngine.Camera.main?.transform;
-            if (cameraTransform == null || controller.CharacterController == null) return;
+            if (cameraTransform == null || controller.Motor == null) return;
 
             // Get camera-relative direction
             Vector3 cameraForward = cameraTransform.forward;
@@ -116,8 +116,12 @@ namespace _Scripts.Player.States
             float speed = stats.MoveSpeed * _blockMoveSpeedMultiplier;
 
             // Apply movement
+            // TODO KCC Phase 5.5: Block movement should use MovementController.ApplyMovement
             Vector3 motion = Time.deltaTime * speed * moveDirection;
-            controller.CharacterController.Move(motion);
+            controller.Motor.SetPositionAndRotation(
+                controller.Motor.TransientPosition + motion,
+                controller.Motor.TransientRotation
+            );
 
             // Handle rotation
             if (controller.IsLockedOn && controller.CurrentTarget != null)

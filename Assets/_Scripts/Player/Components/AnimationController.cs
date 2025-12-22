@@ -60,6 +60,12 @@ namespace _Scripts.Player.Components
         [Tooltip("Smoothing time for animation speed changes")]
         private float speedSmoothTime = 0.1f;
 
+        [Header("Locked-On Animation Blending")]
+        [SerializeField]
+        [Range(0.05f, 0.5f)]
+        [Tooltip("Blend time for MoveX/MoveY transitions (jog to idle and vice versa)")]
+        private float moveDirectionDampTime = 0.15f;
+
         // References
         private PlayerController _player;
         private Animator _animator;
@@ -153,9 +159,21 @@ namespace _Scripts.Player.Components
 
         /// <summary>
         /// Set the Speed parameter for locomotion blending.
+        /// Uses damping for smooth transitions between locomotion states.
         /// </summary>
         /// <param name="normalizedSpeed">0=idle, 0.5=walk, 1=run, 2=sprint</param>
         public void SetSpeed(float normalizedSpeed)
+        {
+            if (_animator == null) return;
+            // Use damped SetFloat for smooth blend tree transitions
+            _animator.SetFloat(SpeedHash, normalizedSpeed, moveDirectionDampTime, Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Set the Speed parameter immediately without damping.
+        /// Use for instant state changes (e.g., teleporting, respawning).
+        /// </summary>
+        public void SetSpeedImmediate(float normalizedSpeed)
         {
             if (_animator == null) return;
             _animator.SetFloat(SpeedHash, normalizedSpeed);
@@ -163,10 +181,23 @@ namespace _Scripts.Player.Components
 
         /// <summary>
         /// Set the directional movement parameters for strafe animations.
+        /// Uses Animator's built-in damping for smooth blend transitions between jog and idle.
         /// </summary>
         /// <param name="moveX">-1=left, 0=neutral, 1=right</param>
         /// <param name="moveY">-1=back, 0=neutral, 1=forward</param>
         public void SetMoveDirection(float moveX, float moveY)
+        {
+            if (_animator == null) return;
+            // Use damped SetFloat for smooth transitions in the blend tree
+            _animator.SetFloat(MoveXHash, moveX, moveDirectionDampTime, Time.deltaTime);
+            _animator.SetFloat(MoveYHash, moveY, moveDirectionDampTime, Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Set the directional movement parameters immediately without damping.
+        /// Use for instant state changes (e.g., teleporting, respawning).
+        /// </summary>
+        public void SetMoveDirectionImmediate(float moveX, float moveY)
         {
             if (_animator == null) return;
             _animator.SetFloat(MoveXHash, moveX);

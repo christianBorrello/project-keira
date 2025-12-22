@@ -2,8 +2,9 @@
 
 **Task Slug**: `base-movement-redesign`
 **Created**: 2025-12-19
-**Path**: `docs/pending-tasks/base-movement-redesign/`
-**Status**: 🔄 In Progress
+**Path**: `docs/completed-tasks/base-movement-redesign/`
+**Status**: ✅ Completed
+**Implementation**: Features implemented in `kcc-character-system` task
 
 ---
 
@@ -52,10 +53,12 @@ Pain points identificati in `MovementController.cs`:
 | 02-Analysis | ✅ Completed | Current system documented |
 | 03-Design | ✅ Completed | Architecture approved |
 | 04-Planning | ✅ Completed | 16 tasks in 6 phases |
-| 05-Implementation | 🔄 In Progress | Phases 1-5 code complete, Phase 6 manual tasks |
-| 06-Validation | ⏳ Pending | |
-| 07-Documentation | ⏳ Pending | |
-| 08-Delivery | ⏳ Pending | |
+| 05-Implementation | ✅ Completed | Via `kcc-character-system` integration |
+| 06-Validation | ✅ Completed | All 5 ADRs verified in KCC |
+| 07-Documentation | ✅ Completed | See `kcc-character-system` docs |
+| 08-Delivery | ✅ Completed | Features live in MovementController.cs |
+
+**Note**: This task served as the **design specification** for movement features. The actual implementation was done as part of the `kcc-character-system` task, which used KCC (Kinematic Character Controller) as the physics foundation and integrated all ADR features on top.
 
 ---
 

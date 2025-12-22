@@ -99,15 +99,15 @@ namespace _Scripts.Player.Components
         /// <summary>
         /// Updates the locked-on distance to current position.
         /// Call after any movement that bypasses normal movement (e.g., dodge/roll).
+        /// Uses 2D distance (XZ plane) for consistency with orbital movement.
         /// </summary>
         public void UpdateLockedOnDistance()
         {
             if (_isLockedOn && _currentTarget != null)
             {
-                _lockedOnDistance = Vector3.Distance(
-                    _player.transform.position,
-                    _currentTarget.LockOnPoint
-                );
+                Vector3 toTarget = _currentTarget.LockOnPoint - _player.transform.position;
+                toTarget.y = 0f;
+                _lockedOnDistance = toTarget.magnitude;
             }
         }
 
@@ -123,13 +123,15 @@ namespace _Scripts.Player.Components
         {
             _isLockedOn = true;
             _currentTarget = target;
-            _lockedOnDistance = Vector3.Distance(
-                _player.transform.position,
-                target.LockOnPoint
-            );
+
+            // Use 2D distance (XZ plane only) for orbital movement consistency
+            // This matches MovementController.ApplyLockedOnMovement which zeros Y
+            Vector3 toTarget = target.LockOnPoint - _player.transform.position;
+            toTarget.y = 0f;
+            _lockedOnDistance = toTarget.magnitude;
 
             if (debugMode)
-                Debug.Log($"[LockOnController] Locked on to: {target.TargetTransform?.name}");
+                Debug.Log($"[LockOnController] Locked on to: {target.TargetTransform?.name}, distance: {_lockedOnDistance:F2}m");
 
             OnTargetAcquired?.Invoke(target);
         }

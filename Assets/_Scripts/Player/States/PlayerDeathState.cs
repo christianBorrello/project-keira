@@ -47,10 +47,10 @@ namespace _Scripts.Player.States
             controller?.SetParrying(false);
             controller?.SetInvulnerable(false);
 
-            // Stop all movement
-            if (controller != null && controller.CharacterController != null)
+            // Stop all movement (disable KCC motor)
+            if (controller != null && controller.Motor != null)
             {
-                controller.CharacterController.enabled = false;
+                controller.Motor.enabled = false;
             }
 
             // Disable collisions if configured
@@ -142,10 +142,10 @@ namespace _Scripts.Player.States
                 Time.timeScale = _originalTimeScale;
             }
 
-            // Re-enable character controller
-            if (controller != null && controller.CharacterController != null)
+            // Re-enable KCC motor
+            if (controller != null && controller.Motor != null)
             {
-                controller.CharacterController.enabled = true;
+                controller.Motor.enabled = true;
             }
 
             // Clear dead flag

@@ -62,6 +62,9 @@ namespace _Scripts.Player.Data
         [Tooltip("Target-relative approach component of movement")]
         public float TargetRelativeApproach;
 
+        [Tooltip("Velocity correction to maintain locked distance during strafe")]
+        public Vector3 LockOnDistanceCorrection;
+
         [Header("Momentum System")]
         [Tooltip("Current actual velocity magnitude (0 to max speed)")]
         public float CurrentVelocityMagnitude;
@@ -77,6 +80,9 @@ namespace _Scripts.Player.Data
 
         [Tooltip("True when actively accelerating (has input)")]
         public bool IsAccelerating;
+
+        [Tooltip("Preserved direction during deceleration (prevents early direction decay)")]
+        public Vector3 DecelerationDirection;
 
         [Header("Turn Tracking")]
         [Tooltip("Angle between current forward and target direction (-180 to 180)")]
@@ -112,12 +118,14 @@ namespace _Scripts.Player.Data
                 LockedOnDistance = 0f,
                 TargetRelativeStrafe = 0f,
                 TargetRelativeApproach = 0f,
+                LockOnDistanceCorrection = Vector3.zero,
                 // Momentum system
                 CurrentVelocityMagnitude = 0f,
                 TargetVelocityMagnitude = 0f,
                 AccelerationTimer = 0f,
                 DecelerationTimer = 0f,
                 IsAccelerating = false,
+                DecelerationDirection = Vector3.zero,
                 // Turn tracking
                 TurnAngle = 0f,
                 IsTurningInPlace = false,

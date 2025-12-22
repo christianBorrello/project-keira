@@ -3,6 +3,7 @@ using _Scripts.Combat.Data;
 using _Scripts.Combat.Hitbox;
 using _Scripts.Combat.Interfaces;
 using _Scripts.Player.Components;
+using Imports.Core;
 using Systems;
 using UnityEngine;
 using Faction = _Scripts.Combat.Interfaces.Faction;
@@ -13,7 +14,7 @@ namespace _Scripts.Player
     /// Main player controller component.
     /// Implements combat interfaces and coordinates with state machine.
     /// </summary>
-    [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(KinematicCharacterMotor))]
     [RequireComponent(typeof(PlayerStateMachine))]
     [RequireComponent(typeof(AnimationController))]
     [RequireComponent(typeof(HealthPoiseController))]
@@ -35,7 +36,7 @@ namespace _Scripts.Player
         private bool debugMode;
 
         // Components
-        private CharacterController _characterController;
+        private KinematicCharacterMotor _motor;
         private PlayerStateMachine _stateMachine;
         private AnimationController _animationController;
         private HealthPoiseController _healthPoiseController;
@@ -55,7 +56,7 @@ namespace _Scripts.Player
         public CombatController CombatController => _combatController;
         public LockOnController LockOnController => _lockOnController;
         public MovementController MovementController => _movementController;
-        public CharacterController CharacterController => _characterController;
+        public KinematicCharacterMotor Motor => _motor;
         public HitboxController HitboxController => _combatController?.HitboxController;
         public bool IsLockedOn => _lockOnController?.IsLockedOn ?? false;
         public ILockOnTarget CurrentTarget => _lockOnController?.CurrentTarget;
@@ -142,7 +143,7 @@ namespace _Scripts.Player
         private void Awake()
         {
             _combatantId = _nextCombatantId++;
-            _characterController = GetComponent<CharacterController>();
+            _motor = GetComponent<KinematicCharacterMotor>();
             _stateMachine = GetComponent<PlayerStateMachine>();
             _animationController = GetComponent<AnimationController>();
             _healthPoiseController = GetComponent<HealthPoiseController>();
