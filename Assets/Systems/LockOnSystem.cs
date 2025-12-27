@@ -16,52 +16,81 @@ namespace Systems
         [Header("Lock-On Settings")]
         [SerializeField]
         [Tooltip("Maximum lock-on distance")]
-        private float _maxLockDistance = 20f;
+        private float maxLockDistance = 20f;
 
         [SerializeField]
         [Tooltip("Field of view for target acquisition (degrees)")]
-        private float _lockOnFOV = 60f;
+        private float lockOnFOV = 60f;
 
         [SerializeField]
         [Tooltip("Layer mask for valid targets")]
-        private LayerMask _targetLayerMask;
+        private LayerMask targetLayerMask;
 
         [SerializeField]
         [Tooltip("Layer mask for line of sight check")]
-        private LayerMask _obstacleMask;
+        private LayerMask obstacleMask;
 
         [Header("Target Switching")]
         [SerializeField]
         [Tooltip("Deadzone for stick input when switching targets")]
-        private float _switchDeadzone = 0.5f;
+        private float switchDeadzone = 0.5f;
 
         [SerializeField]
         [Tooltip("Cooldown between target switches")]
-        private float _switchCooldown = 0.3f;
+        private float switchCooldown = 0.3f;
 
         [Header("Camera")]
         [SerializeField]
         [Tooltip("Camera transform (auto-find if null)")]
-        private Transform _cameraTransform;
+        private Transform cameraTransform;
 
         [SerializeField]
         [Tooltip("Player transform (auto-find if null)")]
-        private Transform _playerTransform;
+        private Transform playerTransform;
 
         [Header("UI")]
         [SerializeField]
         [Tooltip("Lock-on indicator prefab")]
-        private GameObject _lockOnIndicatorPrefab;
+        private GameObject lockOnIndicatorPrefab;
 
         [Header("Debug")]
         [SerializeField]
-        private bool _debugMode = false;
+        private bool debugMode;
 
         // State
         private ILockOnTarget _currentTarget;
-        private readonly List<ILockOnTarget> _potentialTargets = new List<ILockOnTarget>();
+        private readonly List<ILockOnTarget> _potentialTargets = new();
         private float _lastSwitchTime;
         private GameObject _indicatorInstance;
+
+        // Performance: Pre-allocated buffers and caches
+        private readonly Collider[] _colliderBuffer = new Collider[32];
+        private readonly HashSet<ILockOnTarget> _targetSet = new();
+        private readonly TargetComparer _targetComparer = new();
+        private Camera _mainCamera;
+        private float _maxLockDistanceSqr;
+        private float _maxLockDistanceWithToleranceSqr;
+        private float _halfFOV;
+        private float _lastValidationTime;
+        private const float ValidationInterval = 0.1f;
+
+        /// <summary>
+        /// Cached comparer to avoid lambda allocation in Sort().
+        /// </summary>
+        private class TargetComparer : IComparer<ILockOnTarget>
+        {
+            public Vector3 PlayerPosition;
+
+            public int Compare(ILockOnTarget a, ILockOnTarget b)
+            {
+                int priorityCompare = b!.LockOnPriority.CompareTo(a!.LockOnPriority);
+                if (priorityCompare != 0) return priorityCompare;
+
+                float distSqrA = (PlayerPosition - a.LockOnPoint).sqrMagnitude;
+                float distSqrB = (PlayerPosition - b.LockOnPoint).sqrMagnitude;
+                return distSqrA.CompareTo(distSqrB);
+            }
+        }
 
         // Events
         public event Action<ILockOnTarget> OnTargetAcquired;
@@ -88,26 +117,37 @@ namespace Systems
             base.Awake();
 
             // Auto-find references
-            if (_cameraTransform == null)
+            _mainCamera = Camera.main;
+            if (cameraTransform == null)
             {
-                _cameraTransform = UnityEngine.Camera.main?.transform;
+                cameraTransform = _mainCamera?.transform;
             }
 
-            if (_playerTransform == null)
+            if (playerTransform == null)
             {
                 var player = FindFirstObjectByType<PlayerController>();
-                _playerTransform = player?.transform;
+                playerTransform = player?.transform;
             }
+
+            // Cache computed values to avoid runtime calculations
+            _maxLockDistanceSqr = maxLockDistance * maxLockDistance;
+            _maxLockDistanceWithToleranceSqr = (maxLockDistance * 1.2f) * (maxLockDistance * 1.2f);
+            _halfFOV = lockOnFOV * 0.5f;
         }
 
         private void Update()
         {
             if (!IsLockedOn) return;
 
-            // Validate current target
-            if (!ValidateTarget(_currentTarget))
+            // Throttled validation: check target validity at fixed intervals, not every frame
+            if (Time.time - _lastValidationTime >= ValidationInterval)
             {
-                TrySwitchToNextTarget();
+                _lastValidationTime = Time.time;
+
+                if (!ValidateTarget(_currentTarget))
+                {
+                    TrySwitchToNextTarget();
+                }
             }
 
             // Update indicator position
@@ -136,7 +176,7 @@ namespace Systems
         /// </summary>
         public bool AcquireTarget()
         {
-            if (_playerTransform == null || _cameraTransform == null)
+            if (playerTransform == null || cameraTransform == null)
                 return false;
 
             UpdatePotentialTargets();
@@ -170,7 +210,7 @@ namespace Systems
             HideIndicator();
             OnTargetLost?.Invoke(previousTarget);
 
-            if (_debugMode)
+            if (debugMode)
                 Debug.Log("[LockOnSystem] Lock released");
         }
 
@@ -181,8 +221,8 @@ namespace Systems
         public void SwitchTarget(Vector2 direction)
         {
             if (!IsLockedOn) return;
-            if (Time.time - _lastSwitchTime < _switchCooldown) return;
-            if (direction.magnitude < _switchDeadzone) return;
+            if (Time.time - _lastSwitchTime < switchCooldown) return;
+            if (direction.magnitude < switchDeadzone) return;
 
             UpdatePotentialTargets();
 
@@ -217,22 +257,32 @@ namespace Systems
         private void UpdatePotentialTargets()
         {
             _potentialTargets.Clear();
+            _targetSet.Clear();
 
-            if (_playerTransform == null) return;
+            if (playerTransform is null) return;
 
-            // Find all lockable targets in range
-            var colliders = Physics.OverlapSphere(_playerTransform.position, _maxLockDistance, _targetLayerMask);
+            // Find all lockable targets in range using non-allocating physics query
+            int count = Physics.OverlapSphereNonAlloc(
+                playerTransform.position,
+                maxLockDistance,
+                _colliderBuffer,
+                targetLayerMask
+            );
 
-            foreach (var col in colliders)
+            Vector3 playerPos = playerTransform.position;
+
+            for (int i = 0; i < count; i++)
             {
-                var target = col.GetComponentInParent<ILockOnTarget>();
+                var target = _colliderBuffer[i].GetComponentInParent<ILockOnTarget>();
                 if (target == null) continue;
                 if (!target.CanBeLocked) continue;
-                if (_potentialTargets.Contains(target)) continue;
 
-                // Check distance
-                float distance = Vector3.Distance(_playerTransform.position, target.LockOnPoint);
-                if (distance > _maxLockDistance) continue;
+                // O(1) duplicate check using HashSet instead of O(n) List.Contains
+                if (!_targetSet.Add(target)) continue;
+
+                // Use sqrMagnitude to avoid sqrt calculation
+                float distSqr = (playerPos - target.LockOnPoint).sqrMagnitude;
+                if (distSqr > _maxLockDistanceSqr) continue;
 
                 // Check FOV
                 if (!IsInFieldOfView(target)) continue;
@@ -243,37 +293,30 @@ namespace Systems
                 _potentialTargets.Add(target);
             }
 
-            // Sort by priority (higher priority first) then by distance
-            _potentialTargets.Sort((a, b) =>
-            {
-                int priorityCompare = b.LockOnPriority.CompareTo(a.LockOnPriority);
-                if (priorityCompare != 0) return priorityCompare;
-
-                float distA = Vector3.Distance(_playerTransform.position, a.LockOnPoint);
-                float distB = Vector3.Distance(_playerTransform.position, b.LockOnPoint);
-                return distA.CompareTo(distB);
-            });
+            // Sort using cached comparer to avoid lambda allocation
+            _targetComparer.PlayerPosition = playerPos;
+            _potentialTargets.Sort(_targetComparer);
         }
 
         private bool IsInFieldOfView(ILockOnTarget target)
         {
-            if (_cameraTransform == null) return false;
+            if (cameraTransform is null) return false;
 
-            Vector3 directionToTarget = (target.LockOnPoint - _cameraTransform.position).normalized;
-            float angle = Vector3.Angle(_cameraTransform.forward, directionToTarget);
+            Vector3 directionToTarget = (target.LockOnPoint - cameraTransform.position).normalized;
+            float angle = Vector3.Angle(cameraTransform.forward, directionToTarget);
 
-            return angle <= _lockOnFOV * 0.5f;
+            return angle <= _halfFOV;
         }
 
         private bool HasLineOfSight(ILockOnTarget target)
         {
-            if (_playerTransform == null) return false;
+            if (playerTransform is null) return false;
 
-            Vector3 origin = _playerTransform.position + Vector3.up;
+            Vector3 origin = playerTransform.position + Vector3.up;
             Vector3 targetPoint = target.LockOnPoint;
             Vector3 direction = targetPoint - origin;
 
-            if (Physics.Raycast(origin, direction.normalized, out RaycastHit hit, direction.magnitude, _obstacleMask))
+            if (Physics.Raycast(origin, direction.normalized, out RaycastHit hit, direction.magnitude, obstacleMask))
             {
                 // Check if we hit the target itself
                 var hitTarget = hit.collider.GetComponentInParent<ILockOnTarget>();
@@ -286,25 +329,26 @@ namespace Systems
         private ILockOnTarget FindBestTarget()
         {
             if (_potentialTargets.Count == 0) return null;
-            if (_cameraTransform == null) return _potentialTargets[0];
+            if (_mainCamera == null) return _potentialTargets[0];
 
             // Find target closest to screen center
             ILockOnTarget best = null;
             float bestScore = float.MaxValue;
 
-            UnityEngine.Camera cam = UnityEngine.Camera.main;
-            if (cam == null) return _potentialTargets[0];
-
-            Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            float screenCenterX = Screen.width * 0.5f;
+            float screenCenterY = Screen.height * 0.5f;
 
             foreach (var target in _potentialTargets)
             {
-                Vector3 screenPos = cam.WorldToScreenPoint(target.LockOnPoint);
+                Vector3 screenPos = _mainCamera.WorldToScreenPoint(target.LockOnPoint);
 
                 // Skip targets behind camera
                 if (screenPos.z < 0) continue;
 
-                float distanceToCenter = Vector2.Distance(new Vector2(screenPos.x, screenPos.y), screenCenter);
+                // Inline distance calculation to avoid Vector2 allocation
+                float dx = screenPos.x - screenCenterX;
+                float dy = screenPos.y - screenCenterY;
+                float distanceToCenter = Mathf.Sqrt(dx * dx + dy * dy);
 
                 // Factor in priority
                 float score = distanceToCenter - (target.LockOnPriority * 100f);
@@ -322,11 +366,10 @@ namespace Systems
         private ILockOnTarget FindTargetInDirection(Vector2 direction)
         {
             if (_currentTarget == null) return null;
+            if (_mainCamera == null) return null;
 
-            UnityEngine.Camera cam = UnityEngine.Camera.main;
-            if (cam == null) return null;
-
-            Vector2 currentScreenPos = cam.WorldToScreenPoint(_currentTarget.LockOnPoint);
+            Vector3 currentScreenPos3D = _mainCamera.WorldToScreenPoint(_currentTarget.LockOnPoint);
+            Vector2 currentScreenPos = new Vector2(currentScreenPos3D.x, currentScreenPos3D.y);
 
             ILockOnTarget best = null;
             float bestScore = float.MaxValue;
@@ -335,7 +378,7 @@ namespace Systems
             {
                 if (target == _currentTarget) continue;
 
-                Vector3 screenPos3D = cam.WorldToScreenPoint(target.LockOnPoint);
+                Vector3 screenPos3D = _mainCamera.WorldToScreenPoint(target.LockOnPoint);
                 if (screenPos3D.z < 0) continue;
 
                 Vector2 screenPos = new Vector2(screenPos3D.x, screenPos3D.y);
@@ -364,8 +407,9 @@ namespace Systems
             if (target == null) return false;
             if (!target.CanBeLocked) return false;
 
-            float distance = Vector3.Distance(_playerTransform.position, target.LockOnPoint);
-            if (distance > _maxLockDistance * 1.2f) return false; // Slight tolerance
+            // Use sqrMagnitude to avoid sqrt calculation
+            float distSqr = (playerTransform.position - target.LockOnPoint).sqrMagnitude;
+            if (distSqr > _maxLockDistanceWithToleranceSqr) return false;
 
             return true;
         }
@@ -409,7 +453,7 @@ namespace Systems
                 OnTargetAcquired?.Invoke(_currentTarget);
             }
 
-            if (_debugMode)
+            if (debugMode)
                 Debug.Log($"[LockOnSystem] Locked on to: {_currentTarget.TargetTransform?.name}");
         }
 
@@ -419,11 +463,11 @@ namespace Systems
 
         private void ShowIndicator()
         {
-            if (_lockOnIndicatorPrefab == null) return;
+            if (lockOnIndicatorPrefab == null) return;
 
             if (_indicatorInstance == null)
             {
-                _indicatorInstance = Instantiate(_lockOnIndicatorPrefab);
+                _indicatorInstance = Instantiate(lockOnIndicatorPrefab);
             }
 
             _indicatorInstance.SetActive(true);
@@ -445,9 +489,9 @@ namespace Systems
             _indicatorInstance.transform.position = _currentTarget.LockOnPoint;
 
             // Optional: Make indicator face camera
-            if (_cameraTransform != null)
+            if (cameraTransform != null)
             {
-                _indicatorInstance.transform.LookAt(_cameraTransform);
+                _indicatorInstance.transform.LookAt(cameraTransform);
             }
         }
 
@@ -460,9 +504,9 @@ namespace Systems
         /// </summary>
         public Vector3 GetDirectionToTarget()
         {
-            if (!IsLockedOn || _playerTransform == null) return Vector3.forward;
+            if (!IsLockedOn || playerTransform == null) return Vector3.forward;
 
-            Vector3 direction = (_currentTarget.LockOnPoint - _playerTransform.position);
+            Vector3 direction = (_currentTarget.LockOnPoint - playerTransform.position);
             direction.y = 0;
             return direction.normalized;
         }
@@ -472,9 +516,9 @@ namespace Systems
         /// </summary>
         public float GetDistanceToTarget()
         {
-            if (!IsLockedOn || _playerTransform == null) return 0f;
+            if (!IsLockedOn || playerTransform == null) return 0f;
 
-            return Vector3.Distance(_playerTransform.position, _currentTarget.LockOnPoint);
+            return Vector3.Distance(playerTransform.position, _currentTarget.LockOnPoint);
         }
 
         /// <summary>
@@ -491,20 +535,20 @@ namespace Systems
 
         private void OnDrawGizmos()
         {
-            if (!_debugMode) return;
+            if (!debugMode) return;
 
-            if (_playerTransform != null)
+            if (playerTransform != null)
             {
                 // Draw lock range
                 Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(_playerTransform.position, _maxLockDistance);
+                Gizmos.DrawWireSphere(playerTransform.position, maxLockDistance);
             }
 
             if (IsLockedOn && _currentTarget != null)
             {
                 // Draw line to target
                 Gizmos.color = Color.red;
-                Gizmos.DrawLine(_playerTransform?.position ?? Vector3.zero, _currentTarget.LockOnPoint);
+                Gizmos.DrawLine(playerTransform?.position ?? Vector3.zero, _currentTarget.LockOnPoint);
 
                 // Draw lock point
                 Gizmos.DrawWireSphere(_currentTarget.LockOnPoint, 0.3f);
