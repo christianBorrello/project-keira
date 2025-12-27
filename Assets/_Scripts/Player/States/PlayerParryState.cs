@@ -47,7 +47,7 @@ namespace _Scripts.Player.States
             controller?.SetParrying(true);
 
             // Trigger parry animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetTriggerSafe("Parry");
                 controller.Animator.SetIntegerSafe("DeflectChain", _currentDeflectChain);

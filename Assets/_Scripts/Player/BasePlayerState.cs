@@ -164,7 +164,7 @@ namespace _Scripts.Player
 
         protected void CheckCombatTransition(InputSnapshot input)
         {
-            if (InputHandler.Instance is null)
+            if (InputHandler.Instance == null)
                 return;
 
             // Dodge (highest priority)
@@ -210,7 +210,7 @@ namespace _Scripts.Player
 
         protected bool CanSprint()
         {
-            if (controller is null) return false;
+            if (controller == null) return false;
             var stats = controller.GetBaseStats();
             var runtime = controller.GetRuntimeData();
             return runtime.CurrentStamina > stats.SprintStaminaCost * Time.deltaTime;
@@ -218,7 +218,7 @@ namespace _Scripts.Player
 
         protected bool CanDodge()
         {
-            if (controller is null) return false;
+            if (controller == null) return false;
             var stats = controller.GetBaseStats();
             var runtime = controller.GetRuntimeData();
             return runtime.CurrentStamina >= stats.DodgeStaminaCost;
@@ -231,7 +231,7 @@ namespace _Scripts.Player
 
         protected bool CanAttack()
         {
-            if (controller is null) return false;
+            if (controller == null) return false;
             var stats = controller.GetBaseStats();
             var runtime = controller.GetRuntimeData();
             return runtime.CurrentStamina >= stats.LightAttackStaminaCost;

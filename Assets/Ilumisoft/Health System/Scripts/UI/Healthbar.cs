@@ -73,7 +73,7 @@ namespace Ilumisoft.Health_System.Scripts.UI
         {
             float value = fillImage.fillAmount;
 
-            if (canvas is not null)
+            if (canvas != null)
             {
                 // Hide if empty
                 if (Mathf.Approximately(value, 0))
@@ -84,7 +84,7 @@ namespace Ilumisoft.Health_System.Scripts.UI
                     }
                 }
                 // Make sure the canvas is enabled if health is not empty
-                else if (value > 0 && canvas.gameObject.activeSelf is false)
+                else if (value > 0 && canvas.gameObject.activeSelf == false)
                 {
                     canvas.gameObject.SetActive(true);
                 }

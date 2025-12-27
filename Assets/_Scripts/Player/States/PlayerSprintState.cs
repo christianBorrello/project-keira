@@ -18,7 +18,7 @@ namespace _Scripts.Player.States
             base.Enter();
 
             // Speed is set by ApplyMovement - Blend Tree handles animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetBoolSafe("IsMoving", true);
             }
@@ -29,7 +29,7 @@ namespace _Scripts.Player.States
             base.Execute();
 
             // Consume stamina while sprinting
-            if (controller is not null)
+            if (controller != null)
             {
                 var stats = controller.GetBaseStats();
                 controller.ConsumeStamina(stats.SprintStaminaCost * Time.deltaTime);
@@ -42,7 +42,7 @@ namespace _Scripts.Player.States
                 }
             }
 
-            if (controller is null || InputHandler.Instance is null)
+            if (controller == null || InputHandler.Instance == null)
                 return;
 
             var moveInput = InputHandler.Instance.GetMoveInput();
@@ -56,7 +56,7 @@ namespace _Scripts.Player.States
         public override void HandleInput(InputSnapshot input)
         {
             // Dodge has higher priority during sprint (running dodge)
-            if (InputHandler.Instance is not null &&
+            if (InputHandler.Instance != null &&
                 InputHandler.Instance.HasBufferedAction(InputAction.Dodge) &&
                 CanDodge() &&
                 InputHandler.Instance.TryConsumeAction(InputAction.Dodge, out _)
@@ -67,7 +67,7 @@ namespace _Scripts.Player.States
             }
 
             // Check for other combat actions (can attack out of sprint)
-            if (InputHandler.Instance is not null)
+            if (InputHandler.Instance != null)
             {
                 if (InputHandler.Instance.HasBufferedAction(InputAction.LightAttack) && 
                     CanAttack() &&

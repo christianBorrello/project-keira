@@ -17,7 +17,7 @@ namespace _Scripts.Player.States
             base.Enter();
 
             // Speed is set by ApplyMovement - Blend Tree handles animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetBoolSafe("IsMoving", true);
             }
@@ -27,7 +27,7 @@ namespace _Scripts.Player.States
         {
             base.Execute();
 
-            if (controller is null || InputHandler.Instance is null)
+            if (controller == null || InputHandler.Instance == null)
                 return;
 
             var moveInput = InputHandler.Instance.GetMoveInput();

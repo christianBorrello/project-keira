@@ -36,14 +36,14 @@ namespace _Scripts.Player.States
             stateDuration = _attackData.AnimationDuration;
 
             // Consume stamina
-            if (controller is not null)
+            if (controller != null)
             {
                 var stats = controller.GetBaseStats();
                 controller.ConsumeStamina(stats.LightAttackStaminaCost);
             }
 
             // Trigger attack animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetTriggerSafe("LightAttack");
                 controller.Animator.SetIntegerSafe("ComboIndex", _currentComboIndex);
@@ -131,7 +131,7 @@ namespace _Scripts.Player.States
             }
 
             // Check for heavy attack follow-up
-            if (_inRecoveryWindow && InputHandler.Instance is not null &&
+            if (_inRecoveryWindow && InputHandler.Instance != null &&
                 InputHandler.Instance.HasBufferedAction(InputAction.HeavyAttack) &&
                 CanAttack())
             {
@@ -145,7 +145,7 @@ namespace _Scripts.Player.States
             _currentComboIndex++;
 
             // Consume stamina for combo
-            if (controller is not null)
+            if (controller != null)
             {
                 var stats = controller.GetBaseStats();
                 controller.ConsumeStamina(stats.LightAttackStaminaCost);
@@ -155,7 +155,7 @@ namespace _Scripts.Player.States
             }
 
             // Trigger next combo animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetTriggerSafe("LightAttack");
                 controller.Animator.SetIntegerSafe("ComboIndex", _currentComboIndex);

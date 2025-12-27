@@ -16,7 +16,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void SetIntegerSafe(this Animator animator, string name, int value)
         {
-            if (animator is null) return;
+            if (animator == null) return;
             if (HasParameter(animator, name))
             {
                 animator.SetInteger(name, value);
@@ -28,7 +28,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void SetFloatSafe(this Animator animator, string name, float value)
         {
-            if (animator is null) return;
+            if (animator == null) return;
             if (HasParameter(animator, name))
             {
                 animator.SetFloat(name, value);
@@ -40,7 +40,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void SetBoolSafe(this Animator animator, string name, bool value)
         {
-            if (animator is null) return;
+            if (animator == null) return;
             if (!HasParameter(animator, name)) return;
                 
             animator.SetBool(name, value);
@@ -51,7 +51,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void SetTriggerSafe(this Animator animator, string name)
         {
-            if (animator is null) return;
+            if (animator == null) return;
             if (HasParameter(animator, name))
             {
                 animator.SetTrigger(name);
@@ -63,7 +63,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void ResetTriggerSafe(this Animator animator, string name)
         {
-            if (animator is null) return;
+            if (animator == null) return;
             if (HasParameter(animator, name))
             {
                 animator.ResetTrigger(name);
@@ -76,7 +76,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static bool HasParameter(this Animator animator, string parameterName)
         {
-            if (animator is null || animator.runtimeAnimatorController is null)
+            if (animator == null || animator.runtimeAnimatorController == null)
                 return false;
 
             int animatorId = animator.GetInstanceID();
@@ -110,7 +110,7 @@ namespace _Scripts.Utilities
         /// </summary>
         public static void ClearCache(Animator animator)
         {
-            if (animator is not null)
+            if (animator != null)
             {
                 ParameterCache.Remove(animator.GetInstanceID());
             }

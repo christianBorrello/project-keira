@@ -116,7 +116,7 @@ namespace _Scripts.Player.States
 
             // Apply knockback movement first
             // TODO KCC Phase 5.5: Use ExternalForcesManager for knockback
-            if (controller is not null && controller.Motor is not null && _knockbackDistance > 0)
+            if (controller != null && controller.Motor != null && _knockbackDistance > 0)
             {
                 float previousProgress = _knockbackProgress;
                 _knockbackProgress = KnockbackCurve.Evaluate(Mathf.Min(normalizedTime * 3f, 1f));
@@ -148,7 +148,7 @@ namespace _Scripts.Player.States
 
             // Dodge recovery (mashing mechanic)
             if (CanDodgeRecovery && InRecoveryWindow &&
-                InputHandler.Instance is not null &&
+                InputHandler.Instance != null &&
                 InputHandler.Instance.HasBufferedAction(InputAction.Dodge) &&
                 CanDodge())
             {

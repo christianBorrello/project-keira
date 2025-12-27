@@ -79,7 +79,7 @@ namespace _Scripts.Player.States
             }
 
             // Handle movement while blocking (reduced speed)
-            if (controller is not null && InputHandler.Instance is not null)
+            if (controller != null && InputHandler.Instance != null)
             {
                 var moveInput = InputHandler.Instance.GetMoveInput();
                 if (moveInput.sqrMagnitude > 0.01f)
@@ -88,7 +88,7 @@ namespace _Scripts.Player.States
                 }
 
                 // Update animator speed for movement blend
-                if (controller.Animator is not null)
+                if (controller.Animator != null)
                 {
                     float moveSpeed = moveInput.magnitude * _blockMoveSpeedMultiplier;
                     controller.Animator.SetFloatSafe("Speed", moveSpeed);
@@ -161,7 +161,7 @@ namespace _Scripts.Player.States
             }
 
             // Dodge cancel (always available during block)
-            if (InputHandler.Instance is not null &&
+            if (InputHandler.Instance != null &&
                 InputHandler.Instance.HasBufferedAction(InputAction.Dodge) &&
                 CanDodge())
             {
@@ -174,7 +174,7 @@ namespace _Scripts.Player.States
 
         private void ExitToAppropriateState()
         {
-            if (InputHandler.Instance is not null)
+            if (InputHandler.Instance != null)
             {
                 var input = InputHandler.Instance.CreateSnapshot();
                 if (input.HasMoveInput)

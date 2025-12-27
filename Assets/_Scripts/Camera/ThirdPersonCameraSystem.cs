@@ -203,7 +203,7 @@ namespace _Scripts.Camera
 
         private void LateUpdate()
         {
-            if (followTarget is null) return;
+            if (followTarget == null) return;
 
             // Fallback: sync with LockOnSystem directly if events aren't working
             SyncWithLockOnSystem();
@@ -211,7 +211,7 @@ namespace _Scripts.Camera
             ProcessInput();
             UpdatePivotPosition();
 
-            if (_isLockedOn && _lockOnTarget is not null)
+            if (_isLockedOn && _lockOnTarget != null)
             {
                 UpdateLockOnCamera();
             }
@@ -302,15 +302,15 @@ namespace _Scripts.Camera
         private void AcquireReferences()
         {
             _inputHandler = InputHandler.Instance;
-            if (_inputHandler is null)
+            if (_inputHandler == null)
             {
                 Debug.LogWarning("[ThirdPersonCameraSystem] InputHandler not found");
             }
 
-            if (followTarget is null)
+            if (followTarget == null)
             {
                 var player = FindFirstObjectByType<PlayerController>();
-                if (player is not null)
+                if (player != null)
                 {
                     followTarget = player.transform;
                     if (debugMode)
@@ -347,7 +347,7 @@ namespace _Scripts.Camera
         /// </summary>
         private void ProcessInput()
         {
-            if (_inputHandler is null) return;
+            if (_inputHandler == null) return;
 
             Vector2 lookInput = _inputHandler.GetLookInput();
 
@@ -525,7 +525,7 @@ namespace _Scripts.Camera
         /// </summary>
         private Vector3 GetPivotPosition()
         {
-            if (followTarget is null) return transform.position;
+            if (followTarget == null) return transform.position;
             return followTarget.position + followOffset;
         }
 

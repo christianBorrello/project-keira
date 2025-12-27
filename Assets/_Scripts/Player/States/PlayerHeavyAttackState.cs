@@ -117,7 +117,7 @@ namespace _Scripts.Player.States
                 }
 
                 // Can dodge cancel during charge
-                if (InputHandler.Instance is not null &&
+                if (InputHandler.Instance != null &&
                     InputHandler.Instance.HasBufferedAction(InputAction.Dodge) &&
                     CanDodge())
                 {
@@ -163,14 +163,14 @@ namespace _Scripts.Player.States
             float chargePercent = _canCharge ? (_chargeTime / _maxChargeTime) : 0f;
 
             // Create attack data
-            if (controller is not null)
+            if (controller != null)
             {
                 _attackData = AttackData.CreateHeavyAttack();
                 stateDuration = _attackData.AnimationDuration;
             }
 
             // Trigger release animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetBoolSafe("IsCharging", false);
                 controller.Animator.SetFloatSafe("ChargeProgress", chargePercent);

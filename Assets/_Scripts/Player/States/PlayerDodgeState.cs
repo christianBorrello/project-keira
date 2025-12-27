@@ -120,7 +120,7 @@ namespace _Scripts.Player.States
         private Vector3 GetCameraRelativeDirection(Vector2 input)
         {
             UnityEngine.Camera cam = UnityEngine.Camera.main;
-            if (cam is null)
+            if (cam == null)
             {
                 return new Vector3(input.x, 0, input.y);
             }
@@ -197,7 +197,7 @@ namespace _Scripts.Player.States
         public override void HandleInput(InputSnapshot input)
         {
             if (_allowDodgeChain && _inRecoveryWindow &&
-                InputHandler.Instance is not null &&
+                InputHandler.Instance != null &&
                 InputHandler.Instance.HasBufferedAction(InputAction.Dodge) &&
                 CanDodge())
             {

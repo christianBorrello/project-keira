@@ -16,7 +16,7 @@ namespace _Scripts.Player.States
             base.Enter();
 
             // Set animator for idle - Speed=0 drives Blend Tree to idle animation
-            if (controller is not null && controller.Animator is not null)
+            if (controller != null && controller.Animator != null)
             {
                 controller.Animator.SetBoolSafe("IsMoving", false);
                 controller.Animator.SetFloatSafe("Speed", 0f);

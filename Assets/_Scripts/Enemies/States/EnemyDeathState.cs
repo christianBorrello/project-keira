@@ -30,7 +30,7 @@ namespace _Scripts.Enemies.States
             // Stop all movement
             _controller?.StopMovement();
 
-            if (_controller is not null && _controller.NavAgent is not null)
+            if (_controller != null && _controller.NavAgent != null)
             {
                 _controller.NavAgent.enabled = false;
             }
@@ -49,13 +49,13 @@ namespace _Scripts.Enemies.States
             }
 
             // Unregister from combat system
-            if (_controller is not null)
+            if (_controller != null)
             {
                 CombatSystem.Instance?.UnregisterCombatant(_controller);
             }
 
             // Trigger animation
-            if (_controller is not null && _controller.Animator is not null)
+            if (_controller != null && _controller.Animator != null)
             {
                 _controller.Animator.SetTriggerSafe("Death");
                 _controller.Animator.SetBoolSafe("IsDead", true);
@@ -73,7 +73,7 @@ namespace _Scripts.Enemies.States
             OnDeathComplete?.Invoke();
 
             // Schedule despawn
-            if (_despawnDelay > 0 && _controller is not null)
+            if (_despawnDelay > 0 && _controller != null)
             {
                 UnityEngine.Object.Destroy(_controller.gameObject, _despawnDelay);
             }
@@ -81,10 +81,10 @@ namespace _Scripts.Enemies.States
 
         private void EnableRagdoll()
         {
-            if (_controller is null) return;
+            if (_controller == null) return;
 
             // Disable animator
-            if (_controller.Animator is not null)
+            if (_controller.Animator != null)
             {
                 _controller.Animator.enabled = false;
             }
