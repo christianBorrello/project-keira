@@ -93,6 +93,9 @@ namespace _Scripts.Player.Components
         /// </summary>
         public void ToggleLockOn()
         {
+            if (debugMode)
+                Debug.Log($"[LockOnController] ToggleLockOn called, Instance={LockOnSystem.Instance}");
+
             LockOnSystem.Instance?.ToggleLockOn();
         }
 

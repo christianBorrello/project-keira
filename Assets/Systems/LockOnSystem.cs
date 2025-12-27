@@ -161,6 +161,9 @@ namespace Systems
         /// </summary>
         public void ToggleLockOn()
         {
+            if (debugMode)
+                Debug.Log($"[LockOnSystem] ToggleLockOn - IsLockedOn={IsLockedOn}");
+
             if (IsLockedOn)
             {
                 ReleaseLock();
@@ -176,10 +179,20 @@ namespace Systems
         /// </summary>
         public bool AcquireTarget()
         {
+            if (debugMode)
+                Debug.Log($"[LockOnSystem] AcquireTarget - player={playerTransform}, camera={cameraTransform}, layerMask={targetLayerMask.value}");
+
             if (playerTransform == null || cameraTransform == null)
+            {
+                if (debugMode)
+                    Debug.LogWarning("[LockOnSystem] AcquireTarget FAILED - missing transform references");
                 return false;
+            }
 
             UpdatePotentialTargets();
+
+            if (debugMode)
+                Debug.Log($"[LockOnSystem] Found {_potentialTargets.Count} potential targets");
 
             if (_potentialTargets.Count == 0)
                 return false;
@@ -259,7 +272,7 @@ namespace Systems
             _potentialTargets.Clear();
             _targetSet.Clear();
 
-            if (playerTransform is null) return;
+            if (playerTransform == null) return;
 
             // Find all lockable targets in range using non-allocating physics query
             int count = Physics.OverlapSphereNonAlloc(
@@ -300,7 +313,7 @@ namespace Systems
 
         private bool IsInFieldOfView(ILockOnTarget target)
         {
-            if (cameraTransform is null) return false;
+            if (cameraTransform == null) return false;
 
             Vector3 directionToTarget = (target.LockOnPoint - cameraTransform.position).normalized;
             float angle = Vector3.Angle(cameraTransform.forward, directionToTarget);
@@ -310,7 +323,7 @@ namespace Systems
 
         private bool HasLineOfSight(ILockOnTarget target)
         {
-            if (playerTransform is null) return false;
+            if (playerTransform == null) return false;
 
             Vector3 origin = playerTransform.position + Vector3.up;
             Vector3 targetPoint = target.LockOnPoint;
@@ -463,6 +476,7 @@ namespace Systems
 
         private void ShowIndicator()
         {
+            // Use == null for Unity objects (handles unassigned references in Inspector)
             if (lockOnIndicatorPrefab == null) return;
 
             if (_indicatorInstance == null)
@@ -476,10 +490,7 @@ namespace Systems
 
         private void HideIndicator()
         {
-            if (_indicatorInstance != null)
-            {
-                _indicatorInstance.SetActive(false);
-            }
+            _indicatorInstance?.SetActive(false);
         }
 
         private void UpdateIndicator()
